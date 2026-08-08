@@ -5,7 +5,7 @@ Web app (Next.js, chạy như PWA trên iPhone & Android) để:
 1. Đăng nhập **nhiều tài khoản Google** cùng lúc (mỗi tài khoản cấp quyền Drive riêng).
 2. Mở trang, **tự chọn ảnh/video mới trong tuần** trên máy (qua trình chọn file của hệ điều hành — đây là giới hạn của trình duyệt, không có API nào quét ngầm thư viện ảnh khi app không mở).
 3. Bấm **Đồng bộ**: app tự bỏ qua file đã từng đồng bộ, rồi upload từng file vào tài khoản Google Drive đang **còn nhiều dung lượng trống nhất**.
-4. Trang **Thư viện**: xem lại toàn bộ ảnh/video đã đồng bộ từ mọi tài khoản, nhóm theo ngày đồng bộ, có thể **Xem / Xoá / Chia sẻ** ngay trên web.
+4. Trang **Thư viện**: xem lại toàn bộ ảnh/video đã đồng bộ từ mọi tài khoản, nhóm theo ngày đồng bộ, có thể **Xem / Xoá / Chia sẻ** ngay trên web. Nút **Chia sẻ** tải đúng file ảnh/video gốc về rồi mở hộp thoại chia sẻ của hệ điều hành (Web Share API) — gửi thẳng file thật sang Zalo, Facebook, Messenger... y như chia sẻ từ thư viện ảnh trên máy, không phải gửi link Google Drive.
 5. Xoá ảnh gốc trên điện thoại là thao tác **thủ công của người dùng** sau khi đồng bộ xong (trình duyệt không được phép tự xoá ảnh trong Photos/Gallery vì lý do bảo mật hệ điều hành — kể cả Android cũng cần người dùng xác nhận qua hộp thoại hệ thống).
 
 ## Vì sao kiến trúc thế này
@@ -73,3 +73,5 @@ Sau đó deploy bằng Vercel (kết nối thẳng repo GitHub, import biến m�
 - iOS Safari không cho chạy nền / không cho tự động phát hiện ảnh mới khi app đang đóng — luôn cần người dùng tự mở trang và chọn file.
 - Trình duyệt (kể cả Android) không có quyền tự xoá ảnh gốc — chỉ con người mới xoá được, qua app Photos/Gallery thật.
 - "Lọc theo tuần" dựa vào `lastModified` của file do hệ điều hành cung cấp khi bạn chọn — đúng với hầu hết trường hợp chụp ảnh/quay video gần đây.
+- Chia sẻ file thật (không phải link) dùng Web Share API Level 2 (`navigator.share({ files })`). Được hỗ trợ tốt trên Chrome Android và Safari iOS 16.4+. Trên trình duyệt máy tính không hỗ trợ, app sẽ tự tải file về máy để bạn tự đính kèm thủ công.
+- Video dung lượng lớn sẽ mất vài giây để tải về trước khi hộp thoại chia sẻ hiện ra, vì file phải đi qua server để lấy từ Drive về trước.

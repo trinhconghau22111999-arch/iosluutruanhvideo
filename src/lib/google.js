@@ -113,16 +113,6 @@ export async function deleteFileFromDrive(email, fileId) {
   await drive.files.delete({ fileId });
 }
 
-export async function shareFileOnDrive(email, fileId) {
-  const drive = await getDriveClient(email);
-  await drive.permissions.create({
-    fileId,
-    requestBody: { role: "reader", type: "anyone" },
-  });
-  const { data } = await drive.files.get({ fileId, fields: "webViewLink" });
-  return data.webViewLink;
-}
-
 export async function getFileMediaStream(email, fileId) {
   const drive = await getDriveClient(email);
   const res = await drive.files.get(

@@ -52,29 +52,46 @@ export default function LibraryPage() {
     setBusyId(null);
   }
 
+  function triggerDownload(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleShare(item) {
     setBusyId(item.id);
-    const res = await fetch("/api/drive/share", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: item.id }),
-    });
-    const data = await res.json();
-    setBusyId(null);
-    if (!data.link) {
-      alert("Không tạo được link chia sẻ.");
-      return;
-    }
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: item.name, url: data.link });
-        return;
-      } catch {
-        // user cancelled the native share sheet — fall through to clipboard
+    try {
+      // Pull the actual bytes down from Drive so we can hand the OS a real
+      // File — this is what makes Zalo/Facebook/Messenger receive the photo
+      // or video itself, exactly like sharing from the phone's own gallery,
+      // instead of a Drive link.
+      const res = await fetch(`/api/drive/download?id=${item.id}`);
+      if (!res.ok) throw new Error("Không tải được file từ Drive");
+      const blob = await res.blob();
+      const file = new File([blob], item.name, { type: item.mimeType || blob.type });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: item.name });
+      } else {
+        // Trình duyệt (thường là máy tính, hoặc Safari/Chrome quá cũ) không hỗ
+        // trợ chia sẻ file trực tiếp — tải file về để người dùng tự đính kèm
+        // trong Zalo/Facebook.
+        triggerDownload(blob, item.name);
+        alert("Trình duyệt này chưa hỗ trợ chia sẻ trực tiếp. Đã tải file về máy, bạn có thể tự đính kèm trong Zalo/Facebook.");
       }
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        // AbortError = người dùng tự đóng hộp thoại chia sẻ, không phải lỗi.
+        alert("Không chia sẻ được: " + err.message);
+      }
+    } finally {
+      setBusyId(null);
     }
-    await navigator.clipboard.writeText(data.link);
-    alert("Đã sao chép link chia sẻ vào clipboard.");
   }
 
   return (
@@ -120,7 +137,7 @@ export default function LibraryPage() {
                       Xem
                     </a>
                     <button disabled={busyId === item.id} onClick={() => handleShare(item)}>
-                      Chia sẻ
+                      {busyId === item.id ? "Đang tải..." : "Chia sẻ"}
                     </button>
                     <button disabled={busyId === item.id} onClick={() => handleDelete(item)}>
                       Xoá
