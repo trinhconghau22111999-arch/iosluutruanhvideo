@@ -65,7 +65,10 @@ export default function HomePage() {
         {loading && <p className="field-hint">Đang tải...</p>}
 
         {!loading && accounts.length === 0 && (
-          <div className="empty-state">Chưa có tài khoản nào được kết nối.</div>
+          <div className="empty-state">
+            <div className="empty-state-glyph" aria-hidden="true">◇ ◇ ◇</div>
+            Chưa có tài khoản nào. Bấm nút bên dưới để bắt đầu.
+          </div>
         )}
 
         {accounts.map((acc) => {

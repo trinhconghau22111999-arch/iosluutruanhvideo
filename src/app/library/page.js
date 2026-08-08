@@ -106,6 +106,7 @@ export default function LibraryPage() {
       {loading && <p className="field-hint">Đang tải...</p>}
       {!loading && items.length === 0 && (
         <div className="empty-state">
+          <div className="empty-state-glyph" aria-hidden="true">◇ ◇ ◇</div>
           Chưa có file nào. Vào <a href="/sync">Đồng bộ</a> để bắt đầu.
         </div>
       )}

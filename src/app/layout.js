@@ -1,4 +1,5 @@
 import "./globals.css";
+import TopNav from "@/components/TopNav";
 
 export const metadata = {
   title: "Ký Sự — Đồng bộ ảnh & video lên nhiều Drive",
@@ -7,7 +8,7 @@ export const metadata = {
 };
 
 export const viewport = {
-  themeColor: "#1c1917",
+  themeColor: "#14120d",
 };
 
 export default function RootLayout({ children }) {
@@ -16,11 +17,8 @@ export default function RootLayout({ children }) {
       <body>
         <div className="app-shell">
           <header className="topbar">
-            <nav className="topnav">
-              <a href="/">Tài khoản</a>
-              <a href="/sync">Đồng bộ</a>
-              <a href="/library">Thư viện</a>
-            </nav>
+            <TopNav />
+            <div className="sprocket-rail" aria-hidden="true" />
           </header>
           <main>{children}</main>
         </div>
