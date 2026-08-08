@@ -339,6 +339,7 @@ main {
 
 .file-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 9px 12px;
@@ -346,6 +347,11 @@ main {
   border: 1px solid var(--ink-line);
   border-radius: var(--radius);
   font-size: 13px;
+  transition: border-color 0.15s var(--ease);
+}
+
+.file-row:hover {
+  border-color: var(--paper-line);
 }
 
 .file-row .status {
