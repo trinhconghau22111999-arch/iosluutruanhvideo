@@ -252,6 +252,19 @@ main {
   border-color: var(--paper-line);
 }
 
+/* Same idea as .btn-ghost, but for buttons sitting on the light paper card
+   background — .btn-ghost's light text is nearly invisible there. */
+.btn-ghost-paper {
+  background: transparent;
+  border-color: var(--paper-line);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.btn-ghost-paper:hover {
+  background: rgba(20, 18, 13, 0.07);
+}
+
 .btn-danger {
   background: var(--red-stamp);
 }

@@ -120,7 +120,7 @@ export default function SyncPage() {
               <span className="field-hint">Chưa chọn file nào.</span>
             )}
             <button
-              className="btn btn-ghost btn-small"
+              className="btn btn-ghost-paper btn-small"
               onClick={() => inputRef.current?.click()}
               type="button"
             >

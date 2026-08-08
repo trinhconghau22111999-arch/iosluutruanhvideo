@@ -106,7 +106,7 @@ export default function HomePage() {
                     )}
                   </div>
                 </div>
-                <button className="btn btn-ghost btn-small" onClick={() => disconnect(acc.email)}>
+                <button className="btn btn-ghost-paper btn-small" onClick={() => disconnect(acc.email)}>
                   Ngắt kết nối
                 </button>
               </div>
