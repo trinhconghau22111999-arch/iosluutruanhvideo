@@ -16,12 +16,6 @@ export default function RootLayout({ children }) {
       <body>
         <div className="app-shell">
           <header className="topbar">
-            <a href="/" className="brand">
-              <span className="brand-mark" aria-hidden="true">
-                ☰
-              </span>
-              Ký Sự
-            </a>
             <nav className="topnav">
               <a href="/">Tài khoản</a>
               <a href="/sync">Đồng bộ</a>

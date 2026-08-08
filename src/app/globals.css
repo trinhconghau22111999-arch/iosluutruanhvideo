@@ -52,7 +52,7 @@ a {
   z-index: 10;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   padding: 16px 20px;
   background: var(--ink);
   border-bottom: 1px solid var(--line);
