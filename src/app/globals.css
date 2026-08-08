@@ -445,6 +445,7 @@ main {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .tile-media img {

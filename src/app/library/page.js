@@ -119,13 +119,19 @@ export default function LibraryPage() {
           <div className="grid">
             {dayItems.map((item) => (
               <div className="tile" key={item.id}>
-                <div className="tile-media">
+                <a
+                  className="tile-media"
+                  href={`/api/drive/view?id=${item.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Xem ${item.name}`}
+                >
                   {item.mimeType?.startsWith("image/") ? (
                     <img src={`/api/drive/thumbnail?id=${item.id}`} alt={item.name} loading="lazy" />
                   ) : (
                     <span className="video-glyph">▶</span>
                   )}
-                </div>
+                </a>
                 <div className="tile-body">
                   <div className="tile-name" title={item.name}>
                     {item.name}
@@ -134,9 +140,6 @@ export default function LibraryPage() {
                     {item.accountEmail}
                   </div>
                   <div className="tile-actions">
-                    <a href={item.driveLink} target="_blank" rel="noreferrer">
-                      Xem
-                    </a>
                     <button disabled={busyId === item.id} onClick={() => handleShare(item)}>
                       {busyId === item.id ? "Đang tải..." : "Chia sẻ"}
                     </button>
