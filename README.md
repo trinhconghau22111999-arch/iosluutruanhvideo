@@ -12,7 +12,11 @@ Web app (Next.js, chạy như PWA trên iPhone & Android) để:
 
 - **Không dùng Firebase Auth cho việc lấy quyền Drive**, vì Firebase Auth chỉ giữ 1 user đăng nhập / phiên. Để giữ **nhiều tài khoản Google cùng lúc**, app tự làm OAuth 2.0 "Authorization Code" trực tiếp với Google, lưu `refresh_token` của từng tài khoản ở server (Firestore), rồi phía server sinh access token khi cần gọi Drive API. Nhờ vậy user không phải đăng nhập lại mỗi giờ.
 - **Firestore (Firebase)** chỉ dùng làm database lưu: danh sách tài khoản đã kết nối (refresh token đã mã hoá) + danh sách file đã đồng bộ (để chống trùng, để hiển thị thư viện).
-- Toàn bộ gọi Google Drive API đều đi qua **API route phía server** (Next.js `route.js`) — client không bao giờ cầm access token/refresh token, an toàn hơn.
+- **File ảnh/video được tải thẳng từ điện thoại lên Google Drive, không đi qua server của app.** Lý do: các nền tảng hosting miễn phí như Vercel giới hạn cứng mỗi request gửi lên server tối đa khoảng 4.5MB — đủ cho ảnh nhưng gần như luôn nhỏ hơn video thật. Vì vậy luồng tải lên chia làm 2 bước nhỏ:
+  1. Trình duyệt gọi `/api/drive/upload/init` (chỉ gửi tên/dung lượng/loại file — vài trăm byte) — server kiểm tra trùng, chọn tài khoản còn trống nhiều nhất, xin Google một "phiên tải lên" (resumable session) rồi trả về địa chỉ phiên đó.
+  2. Trình duyệt tự gửi thẳng toàn bộ file tới địa chỉ đó (thẳng tới Google, không qua server app) — không giới hạn dung lượng, kể cả video vài GB. Nếu mạng rớt giữa chừng, app tự hỏi Google đã nhận được bao nhiêu byte và tiếp tục đúng từ chỗ đó, không tải lại từ đầu.
+  3. Trình duyệt báo lại `/api/drive/upload/complete` (cũng chỉ vài trăm byte metadata) để lưu vào Firestore cho thư viện.
+- Toàn bộ gọi Google Drive API khác (xoá, tải về để xem/chia sẻ) đều đi qua **API route phía server** (Next.js `route.js`) — client không bao giờ cầm access token/refresh token, an toàn hơn.
 
 ## Cài đặt
 

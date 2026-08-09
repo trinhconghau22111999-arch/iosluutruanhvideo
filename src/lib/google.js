@@ -1,7 +1,6 @@
 import { google } from "googleapis";
 import { db } from "./firebaseAdmin";
 import { encrypt, decrypt } from "./crypto";
-import { Readable } from "stream";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/drive.file",
@@ -91,21 +90,42 @@ export async function getStorageQuota(email) {
   return { email, limit, usage, free };
 }
 
-export async function uploadFileToDrive(email, { name, mimeType, buffer }) {
-  const drive = await getDriveClient(email);
-  const { data } = await drive.files.create({
-    requestBody: {
-      name,
-      parents: undefined, // uploads to "My Drive" root; folder org left simple by design
-      appProperties: { source: "photo-sync-hub" },
-    },
-    media: {
-      mimeType,
-      body: Readable.from(buffer),
-    },
-    fields: "id, name, webViewLink, thumbnailLink, mimeType, createdTime",
-  });
-  return data;
+export async function getAccessToken(email) {
+  const client = await getAuthorizedClientForAccount(email);
+  const { token } = await client.getAccessToken();
+  if (!token) throw new Error(`Không lấy được access token cho ${email}`);
+  return token;
+}
+
+// Starts a Google Drive "resumable" upload session and hands back the
+// session URL. Only this small JSON request goes through our server — the
+// actual file bytes are PUT directly from the browser to that URL, which is
+// required because Vercel's serverless functions cap request bodies at
+// 4.5MB (fine for photos, far too small for most videos).
+export async function initResumableUpload(email, { name, mimeType, size }) {
+  const accessToken = await getAccessToken(email);
+  const res = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,webViewLink,thumbnailLink,mimeType,createdTime",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Type": mimeType || "application/octet-stream",
+        "X-Upload-Content-Length": String(size),
+      },
+      body: JSON.stringify({ name, appProperties: { source: "photo-sync-hub" } }),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Không khởi tạo được phiên tải lên Drive (${res.status}): ${text}`);
+  }
+
+  const sessionUrl = res.headers.get("Location");
+  if (!sessionUrl) throw new Error("Google không trả về địa chỉ phiên tải lên");
+  return sessionUrl;
 }
 
 export async function deleteFileFromDrive(email, fileId) {
