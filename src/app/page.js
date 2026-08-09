@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import EmptyGlyph from "@/components/EmptyGlyph";
 
 function dayLabel(iso) {
   const d = new Date(iso);
@@ -96,12 +97,17 @@ export default function LibraryPage() {
 
   return (
     <>
-      <h1 className="page-title">Thư viện đã đồng bộ</h1>
+      <div className="page-head">
+        <h1 className="page-title">Thư viện đã đồng bộ</h1>
+        <div className="title-rule" aria-hidden="true" />
+      </div>
 
       {loading && <p className="field-hint">Đang tải...</p>}
       {!loading && items.length === 0 && (
         <div className="empty-state">
-          <div className="empty-state-glyph" aria-hidden="true">◇ ◇ ◇</div>
+          <div className="empty-state-glyph">
+            <EmptyGlyph />
+          </div>
           Chưa có file nào. Vào <a href="/sync">Đồng bộ</a> để bắt đầu.
         </div>
       )}
@@ -109,7 +115,8 @@ export default function LibraryPage() {
       {groups.map(([dayKey, dayItems]) => (
         <div className="day-group" key={dayKey}>
           <div className="day-heading">
-            {dayLabel(dayItems[0].syncedAt)} · {dayItems.length} file
+            <span>{dayLabel(dayItems[0].syncedAt)}</span>
+            <span className="count-badge">{dayItems.length} file</span>
           </div>
           <div className="grid">
             {dayItems.map((item) => (

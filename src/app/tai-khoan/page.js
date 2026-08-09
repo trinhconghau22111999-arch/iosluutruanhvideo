@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import EmptyGlyph from "@/components/EmptyGlyph";
 
 function bytes(n) {
   if (n === null || n === undefined) return "Không giới hạn";
@@ -48,7 +49,10 @@ export default function HomePage() {
 
   return (
     <>
-      <h1 className="page-title">Tài khoản Google đang kết nối</h1>
+      <div className="page-head">
+        <h1 className="page-title">Tài khoản Google đang kết nối</h1>
+        <div className="title-rule" aria-hidden="true" />
+      </div>
 
       {notice && (
         <div className={`banner ${notice.type === "ok" ? "banner-ok" : "banner-error"}`}>
@@ -61,7 +65,9 @@ export default function HomePage() {
 
         {!loading && accounts.length === 0 && (
           <div className="empty-state">
-            <div className="empty-state-glyph" aria-hidden="true">◇ ◇ ◇</div>
+            <div className="empty-state-glyph">
+              <EmptyGlyph />
+            </div>
             Chưa có tài khoản nào. Bấm nút bên dưới để bắt đầu.
           </div>
         )}

@@ -168,8 +168,26 @@ export default function SyncPage() {
     const files = Array.from(e.target.files || []).filter(
       (f) => f.type.startsWith("image/") || f.type.startsWith("video/")
     );
-    setRows(files.map((file) => ({ file, selected: true, status: "pending" })));
+    // Revoke any previous preview URLs before replacing the selection, so we
+    // don't leak memory if the person picks files more than once.
+    setRows((prev) => {
+      prev.forEach((r) => r.previewUrl && URL.revokeObjectURL(r.previewUrl));
+      return files.map((file) => ({
+        file,
+        selected: true,
+        status: "pending",
+        previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      }));
+    });
   }
+
+  // Clean up any outstanding preview URLs when the page unmounts.
+  useEffect(() => {
+    return () => {
+      rows.forEach((r) => r.previewUrl && URL.revokeObjectURL(r.previewUrl));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function toggleSelectAll(checked) {
     setRows((prev) => prev.map((r) => ({ ...r, selected: checked })));
@@ -261,7 +279,10 @@ export default function SyncPage() {
 
   return (
     <>
-      <h1 className="page-title">Chọn ảnh/video để đồng bộ</h1>
+      <div className="page-head">
+        <h1 className="page-title">Chọn ảnh/video để đồng bộ</h1>
+        <div className="title-rule" aria-hidden="true" />
+      </div>
 
       <div className="card">
         <div className="card-inner stack">
@@ -303,13 +324,20 @@ export default function SyncPage() {
                   key={dedupeKeyOf(r.file) + idx}
                   style={{ cursor: running ? "default" : "pointer" }}
                 >
-                  <span className="row" style={{ gap: 10, minWidth: 0 }}>
+                  <span className="row" style={{ gap: 10, minWidth: 0, flex: 1 }}>
                     <input
                       type="checkbox"
                       checked={r.selected}
                       disabled={running}
                       onChange={() => toggleOne(idx)}
                     />
+                    <span className="thumb-preview">
+                      {r.previewUrl ? (
+                        <img src={r.previewUrl} alt="" />
+                      ) : (
+                        <span className="video-glyph">▶</span>
+                      )}
+                    </span>
                     <span
                       style={{
                         overflow: "hidden",
@@ -347,8 +375,11 @@ export default function SyncPage() {
           </button>
 
           {selectedRows.length > 0 && (running || finishedCount > 0) && (
-            <div className="progress-track">
-              <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+            <div className="progress-row">
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+              </div>
+              <span className="progress-label">{progressPct}%</span>
             </div>
           )}
 
