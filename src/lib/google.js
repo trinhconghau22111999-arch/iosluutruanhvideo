@@ -98,10 +98,11 @@ export async function getAccessToken(email) {
 }
 
 // Starts a Google Drive "resumable" upload session and hands back the
-// session URL. Only this small JSON request goes through our server — the
-// actual file bytes are PUT directly from the browser to that URL, which is
-// required because Vercel's serverless functions cap request bodies at
-// 4.5MB (fine for photos, far too small for most videos).
+// session URL. Only this small JSON request goes through our server; the
+// actual file bytes are sent from the browser in small chunks to our own
+// /api/drive/upload/chunk route, which relays each chunk to this session URL
+// server-side (see that route for why: avoids any dependency on Google's
+// CORS policy for the upload endpoint, which isn't something we control).
 export async function initResumableUpload(email, { name, mimeType, size }) {
   const accessToken = await getAccessToken(email);
   const res = await fetch(

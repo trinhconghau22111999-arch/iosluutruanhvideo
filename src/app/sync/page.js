@@ -6,67 +6,59 @@ function dedupeKeyOf(file) {
   return `${file.name}__${file.size}__${file.lastModified}`;
 }
 
-// Asks Google how many bytes of a resumable session it has actually
-// received so far, so a dropped connection (very common mid-video, on
-// mobile, while switching apps) can resume from where it left off instead
-// of restarting the whole upload.
-async function queryUploadOffset(sessionUrl, totalSize) {
-  try {
-    const res = await fetch(sessionUrl, {
-      method: "PUT",
-      headers: { "Content-Range": `bytes */${totalSize}` },
-    });
-    if (res.status === 308) {
-      const range = res.headers.get("Range"); // e.g. "bytes=0-1048575"
-      if (!range) return 0;
-      const match = range.match(/bytes=0-(\d+)/);
-      return match ? parseInt(match[1], 10) + 1 : 0;
-    }
-    if (res.ok) {
-      // Google actually already has the whole file — the earlier PUT
-      // succeeded but the response never reached us.
-      return await res.json();
-    }
-  } catch {
-    // Network still down — caller will surface the original error.
-  }
-  return null;
-}
+// Sends the whole file to Google in ~4MB pieces, each one relayed through
+// our own server (see /api/drive/upload/chunk for why: it keeps every
+// browser request same-origin, so nothing here depends on whether Google's
+// upload endpoint allows direct cross-origin requests from arbitrary web
+// apps — a 4MB chunk also stays safely under Vercel's 4.5MB request limit).
+const CHUNK_SIZE = 4 * 1024 * 1024;
 
-async function putToGoogle(sessionUrl, file) {
-  try {
-    const res = await fetch(sessionUrl, {
-      method: "PUT",
-      headers: { "Content-Range": `bytes 0-${file.size - 1}/${file.size}` },
-      body: file,
-    });
-    if (res.ok) return await res.json();
-    throw new Error(`Google trả lỗi ${res.status}`);
-  } catch (err) {
-    // Try once to pick up from wherever Google actually left off, rather
-    // than giving up or re-sending bytes it already has.
-    const offsetResult = await queryUploadOffset(sessionUrl, file.size);
-    if (offsetResult === null) throw err;
-    if (typeof offsetResult === "object") return offsetResult; // was already complete
+async function putInChunks(sessionUrl, file) {
+  let offset = 0;
 
-    const remaining = file.slice(offsetResult);
-    const res2 = await fetch(sessionUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Range": `bytes ${offsetResult}-${file.size - 1}/${file.size}`,
-      },
-      body: remaining,
-    });
-    if (!res2.ok) throw new Error(`Google trả lỗi ${res2.status} khi tiếp tục tải lên`);
-    return await res2.json();
+  while (offset < file.size) {
+    const end = Math.min(offset + CHUNK_SIZE, file.size);
+    const chunk = file.slice(offset, end);
+
+    let data;
+    let lastErr;
+    // A single chunk is small and quick, so a couple of quiet retries here
+    // comfortably absorb the kind of brief network blip that's common on
+    // mobile, without having to restart the whole file from scratch.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch("/api/drive/upload/chunk", {
+          method: "POST",
+          headers: {
+            "X-Session-Url": sessionUrl,
+            "X-Total-Size": String(file.size),
+            "X-Chunk-Start": String(offset),
+            "Content-Type": "application/octet-stream",
+          },
+          body: chunk,
+        });
+        data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Lỗi tải lên (${res.status})`);
+        lastErr = null;
+        break;
+      } catch (err) {
+        lastErr = err;
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 1200));
+      }
+    }
+    if (lastErr) throw lastErr;
+
+    if (data.status === "complete") return data.file;
+    offset = end;
   }
+
+  throw new Error("Tải lên kết thúc nhưng Google chưa xác nhận hoàn tất");
 }
 
 // Full flow for one file: ask our server to dedupe-check + pick an account
-// + open a Google resumable session (small JSON only), then PUT the actual
-// bytes straight from the browser to Google (bypassing our server and its
-// 4.5MB body limit entirely — this is what makes large videos work), then
-// tell our server the small resulting metadata so it can be recorded.
+// + open a Google resumable session (small JSON only), then send the file
+// bytes in small chunks (see putInChunks above), then tell our server the
+// small resulting metadata so it can be recorded.
 async function syncOneFile(file) {
   const initRes = await fetch("/api/drive/upload/init", {
     method: "POST",
@@ -82,7 +74,7 @@ async function syncOneFile(file) {
   if (!initRes.ok) throw new Error(initData.error || "Lỗi không rõ");
   if (initData.skipped) return initData;
 
-  const driveFile = await putToGoogle(initData.sessionUrl, file);
+  const driveFile = await putInChunks(initData.sessionUrl, file);
 
   const completeRes = await fetch("/api/drive/upload/complete", {
     method: "POST",
