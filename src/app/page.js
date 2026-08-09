@@ -96,12 +96,7 @@ export default function LibraryPage() {
 
   return (
     <>
-      <p className="page-eyebrow">Bước 3</p>
       <h1 className="page-title">Thư viện đã đồng bộ</h1>
-      <p className="page-sub">
-        Toàn bộ ảnh/video đã đồng bộ từ mọi tài khoản Google, xếp theo ngày đồng bộ, mới nhất
-        lên trước.
-      </p>
 
       {loading && <p className="field-hint">Đang tải...</p>}
       {!loading && items.length === 0 && (

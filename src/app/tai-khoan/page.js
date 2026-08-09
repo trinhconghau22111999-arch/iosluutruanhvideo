@@ -48,12 +48,7 @@ export default function HomePage() {
 
   return (
     <>
-      <p className="page-eyebrow">Bước 1</p>
       <h1 className="page-title">Tài khoản Google đang kết nối</h1>
-      <p className="page-sub">
-        Thêm mọi tài khoản Gmail bạn muốn dùng để lưu ảnh/video. Khi đồng bộ, mỗi file sẽ tự
-        động được gửi vào tài khoản đang còn nhiều dung lượng trống nhất trong danh sách này.
-      </p>
 
       {notice && (
         <div className={`banner ${notice.type === "ok" ? "banner-ok" : "banner-error"}`}>
@@ -118,11 +113,6 @@ export default function HomePage() {
           <a className="btn" href="/api/auth/google/start">
             + Thêm tài khoản Google
           </a>
-          {accounts.length > 0 && (
-            <a className="btn btn-ghost" href="/sync">
-              Đi tới Đồng bộ →
-            </a>
-          )}
         </div>
       </div>
     </>

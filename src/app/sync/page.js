@@ -245,15 +245,7 @@ export default function SyncPage() {
 
   return (
     <>
-      <p className="page-eyebrow">Bước 2</p>
       <h1 className="page-title">Chọn ảnh/video để đồng bộ</h1>
-      <p className="page-sub">
-        Chọn ảnh/video trên máy. File nào đã từng đồng bộ trước đó sẽ tự động được bỏ
-        qua. Các file còn lại sẽ lần lượt được lưu vào tài khoản Google đang trống nhiều
-        dung lượng nhất. Trong lúc đồng bộ, bạn có thể chuyển sang dùng app khác — chỉ cần
-        đừng vuốt tắt tab này. Nếu lỡ bị gián đoạn giữa chừng, quay lại đây và chọn lại
-        đúng những ảnh/video đó, phần đã lưu xong sẽ tự bỏ qua, chỉ tiếp tục phần còn lại.
-      </p>
 
       <div className="card">
         <div className="card-inner stack">
