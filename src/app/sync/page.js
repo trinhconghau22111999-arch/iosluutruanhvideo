@@ -181,40 +181,56 @@ export default function SyncPage() {
     );
   }
 
+  // How many files upload at the same time. 3 is a deliberate middle ground:
+  // enough to keep the network busy between requests (helpful when syncing
+  // many small photos), but not so many that they fight each other for the
+  // phone's limited upload bandwidth (which mostly matters for big videos —
+  // see the note in the UI below).
+  const SYNC_CONCURRENCY = 3;
+
   async function runQueue(targets) {
     if (targets.length === 0) return;
     setRunning(true);
 
-    for (const target of targets) {
-      const { file, idx } = target;
-      setRows((prev) =>
-        prev.map((r, i) => (i === idx ? { ...r, status: "uploading" } : r))
-      );
+    let cursor = 0;
+    async function worker() {
+      while (cursor < targets.length) {
+        const target = targets[cursor];
+        cursor += 1;
+        const { file, idx } = target;
 
-      try {
-        const data = await syncOneFile(file);
+        setRows((prev) =>
+          prev.map((r, i) => (i === idx ? { ...r, status: "uploading" } : r))
+        );
 
-        if (data.skipped) {
+        try {
+          const data = await syncOneFile(file);
+
+          if (data.skipped) {
+            setRows((prev) =>
+              prev.map((r, i) =>
+                i === idx ? { ...r, status: "skip", message: data.reason } : r
+              )
+            );
+          } else {
+            setRows((prev) =>
+              prev.map((r, i) =>
+                i === idx
+                  ? { ...r, status: "ok", message: `Đã lưu vào ${data.account}` }
+                  : r
+              )
+            );
+          }
+        } catch (err) {
           setRows((prev) =>
-            prev.map((r, i) =>
-              i === idx ? { ...r, status: "skip", message: data.reason } : r
-            )
-          );
-        } else {
-          setRows((prev) =>
-            prev.map((r, i) =>
-              i === idx
-                ? { ...r, status: "ok", message: `Đã lưu vào ${data.account}` }
-                : r
-            )
+            prev.map((r, i) => (i === idx ? { ...r, status: "error", message: err.message } : r))
           );
         }
-      } catch (err) {
-        setRows((prev) =>
-          prev.map((r, i) => (i === idx ? { ...r, status: "error", message: err.message } : r))
-        );
       }
     }
+
+    const workerCount = Math.min(SYNC_CONCURRENCY, targets.length);
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
     setRunning(false);
   }
