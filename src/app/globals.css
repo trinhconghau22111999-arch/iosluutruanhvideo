@@ -425,7 +425,7 @@ main {
 
 .tile {
   background: var(--ink-soft);
-  border-radius: var(--radius);
+  border-radius: 14px;
   overflow: hidden;
   border: 1px solid var(--ink-line);
   display: flex;
