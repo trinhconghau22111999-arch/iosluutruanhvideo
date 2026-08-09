@@ -1,5 +1,6 @@
 import "./globals.css";
 import TopNav from "@/components/TopNav";
+import SwipeNav from "@/components/SwipeNav";
 
 export const metadata = {
   title: "Ký Sự — Đồng bộ ảnh & video lên nhiều Drive",
@@ -20,7 +21,9 @@ export default function RootLayout({ children }) {
             <TopNav />
             <div className="sprocket-rail" aria-hidden="true" />
           </header>
-          <main>{children}</main>
+          <main>
+            <SwipeNav>{children}</SwipeNav>
+          </main>
         </div>
       </body>
     </html>

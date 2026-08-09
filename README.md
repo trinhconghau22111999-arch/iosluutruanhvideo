@@ -67,11 +67,13 @@ git push -u origin main
 Sau đó deploy bằng Vercel (kết nối thẳng repo GitHub, import biến môi trường ở bước 3, nhớ đổi `GOOGLE_REDIRECT_URI`/`APP_BASE_URL` sang domain thật) — Vercel free tier chạy tốt cho app này.
 
 ## Luồng sử dụng
-1. Vào trang chủ → bấm **"Thêm tài khoản Google"** → lặp lại cho từng tài khoản Gmail muốn dùng để lưu ảnh.
-2. Vào **Đồng bộ** → chọn ảnh/video của tuần này từ máy (trình chọn file sẽ mở sẵn thư mục ảnh gần đây trên hầu hết điện thoại).
+1. Mở app lần đầu sẽ vào thẳng **Thư viện** (trang mặc định) — trống trơn cho tới khi bạn kết nối tài khoản và đồng bộ. Vào **Tài khoản** → bấm **"Thêm tài khoản Google"** → lặp lại cho từng tài khoản Gmail muốn dùng để lưu ảnh.
+2. Vào **Đồng bộ** → chọn ảnh/video từ máy, tick chọn (hoặc "Chọn tất cả").
 3. Bấm **Bắt đầu đồng bộ** → app bỏ qua file trùng, upload phần còn lại, ưu tiên tài khoản trống nhiều nhất, hiện tiến trình từng file.
-4. Vào **Thư viện** → xem lại tất cả ảnh/video theo ngày, bấm Xem / Chia sẻ / Xoá.
+4. Vào **Thư viện** → xem lại tất cả ảnh/video theo ngày, bấm thẳng vào ảnh/video để xem, hoặc Chia sẻ / Xoá.
 5. Tự tay xoá ảnh gốc trên điện thoại (Photos/Gallery) sau khi đã kiểm tra đồng bộ xong.
+
+**Chuyển trang:** vuốt trái/phải trên màn hình để di chuyển qua lại giữa 3 trang theo đúng thứ tự tab (Thư viện → Đồng bộ → Tài khoản), hoặc bấm thẳng vào tên trang trên thanh menu.
 
 ## Giới hạn cần biết
 - iOS Safari không cho chạy nền / không cho tự động phát hiện ảnh mới khi app đang đóng — luôn cần người dùng tự mở trang và chọn file.

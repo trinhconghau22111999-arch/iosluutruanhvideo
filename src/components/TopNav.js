@@ -3,9 +3,9 @@
 import { usePathname } from "next/navigation";
 
 const LINKS = [
-  { href: "/", label: "Tài khoản" },
+  { href: "/", label: "Thư viện" },
   { href: "/sync", label: "Đồng bộ" },
-  { href: "/library", label: "Thư viện" },
+  { href: "/tai-khoan", label: "Tài khoản" },
 ];
 
 export default function TopNav() {

@@ -7,14 +7,14 @@ export async function GET(request) {
   const base = process.env.APP_BASE_URL || "http://localhost:3000";
 
   if (!code) {
-    return NextResponse.redirect(`${base}/?error=missing_code`);
+    return NextResponse.redirect(`${base}/tai-khoan?error=missing_code`);
   }
 
   try {
     const email = await handleOAuthCallback(code);
-    return NextResponse.redirect(`${base}/?connected=${encodeURIComponent(email)}`);
+    return NextResponse.redirect(`${base}/tai-khoan?connected=${encodeURIComponent(email)}`);
   } catch (err) {
     console.error(err);
-    return NextResponse.redirect(`${base}/?error=${encodeURIComponent(err.message)}`);
+    return NextResponse.redirect(`${base}/tai-khoan?error=${encodeURIComponent(err.message)}`);
   }
 }

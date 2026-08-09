@@ -347,7 +347,7 @@ export default function SyncPage() {
           {allDone && errorCount === 0 && (
             <div className="banner banner-ok">
               Xong! Giờ bạn có thể tự xoá các ảnh/video này khỏi máy, và xem lại trong{" "}
-              <a href="/library">Thư viện</a>.
+              <a href="/">Thư viện</a>.
             </div>
           )}
 

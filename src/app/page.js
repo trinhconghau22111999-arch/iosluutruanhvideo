@@ -1,130 +1,158 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-function bytes(n) {
-  if (n === null || n === undefined) return "Không giới hạn";
-  if (n === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(n) / Math.log(1024));
-  return `${(n / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+function dayLabel(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("vi-VN", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
-export default function HomePage() {
-  const [accounts, setAccounts] = useState([]);
+export default function LibraryPage() {
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState(null);
+  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("connected")) {
-      setNotice({ type: "ok", text: `Đã kết nối ${params.get("connected")}` });
-      window.history.replaceState({}, "", "/");
-    }
-    if (params.get("error")) {
-      setNotice({ type: "error", text: params.get("error") });
-      window.history.replaceState({}, "", "/");
-    }
     load();
   }, []);
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/accounts");
+    const res = await fetch("/api/library");
     const data = await res.json();
-    setAccounts(data.accounts || []);
+    setItems(data.items || []);
     setLoading(false);
   }
 
-  async function disconnect(email) {
-    if (!confirm(`Ngắt kết nối ${email}? Ảnh đã đồng bộ vào tài khoản này vẫn còn nguyên trên Drive, chỉ là app sẽ không upload thêm vào đó nữa.`)) return;
-    await fetch("/api/accounts", {
-      method: "DELETE",
+  const groups = useMemo(() => {
+    const map = new Map();
+    for (const item of items) {
+      const key = new Date(item.syncedAt).toDateString();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(item);
+    }
+    return Array.from(map.entries()); // items already sorted desc by syncedAt from API
+  }, [items]);
+
+  async function handleDelete(item) {
+    if (!confirm(`Xoá "${item.name}" khỏi Google Drive (${item.accountEmail}) và khỏi thư viện?`))
+      return;
+    setBusyId(item.id);
+    await fetch("/api/drive/delete", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ id: item.id }),
     });
-    load();
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    setBusyId(null);
+  }
+
+  function triggerDownload(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleShare(item) {
+    setBusyId(item.id);
+    try {
+      // Pull the actual bytes down from Drive so we can hand the OS a real
+      // File — this is what makes Zalo/Facebook/Messenger receive the photo
+      // or video itself, exactly like sharing from the phone's own gallery,
+      // instead of a Drive link.
+      const res = await fetch(`/api/drive/download?id=${item.id}`);
+      if (!res.ok) throw new Error("Không tải được file từ Drive");
+      const blob = await res.blob();
+      const file = new File([blob], item.name, { type: item.mimeType || blob.type });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: item.name });
+      } else {
+        // Trình duyệt (thường là máy tính, hoặc Safari/Chrome quá cũ) không hỗ
+        // trợ chia sẻ file trực tiếp — tải file về để người dùng tự đính kèm
+        // trong Zalo/Facebook.
+        triggerDownload(blob, item.name);
+        alert("Trình duyệt này chưa hỗ trợ chia sẻ trực tiếp. Đã tải file về máy, bạn có thể tự đính kèm trong Zalo/Facebook.");
+      }
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        // AbortError = người dùng tự đóng hộp thoại chia sẻ, không phải lỗi.
+        alert("Không chia sẻ được: " + err.message);
+      }
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
     <>
-      <p className="page-eyebrow">Bước 1</p>
-      <h1 className="page-title">Tài khoản Google đang kết nối</h1>
+      <p className="page-eyebrow">Bước 3</p>
+      <h1 className="page-title">Thư viện đã đồng bộ</h1>
       <p className="page-sub">
-        Thêm mọi tài khoản Gmail bạn muốn dùng để lưu ảnh/video. Khi đồng bộ, mỗi file sẽ tự
-        động được gửi vào tài khoản đang còn nhiều dung lượng trống nhất trong danh sách này.
+        Toàn bộ ảnh/video đã đồng bộ từ mọi tài khoản Google, xếp theo ngày đồng bộ, mới nhất
+        lên trước.
       </p>
 
-      {notice && (
-        <div className={`banner ${notice.type === "ok" ? "banner-ok" : "banner-error"}`}>
-          {notice.text}
+      {loading && <p className="field-hint">Đang tải...</p>}
+      {!loading && items.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-state-glyph" aria-hidden="true">◇ ◇ ◇</div>
+          Chưa có file nào. Vào <a href="/sync">Đồng bộ</a> để bắt đầu.
         </div>
       )}
 
-      <div className="stack">
-        {loading && <p className="field-hint">Đang tải...</p>}
-
-        {!loading && accounts.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-state-glyph" aria-hidden="true">◇ ◇ ◇</div>
-            Chưa có tài khoản nào. Bấm nút bên dưới để bắt đầu.
+      {groups.map(([dayKey, dayItems]) => (
+        <div className="day-group" key={dayKey}>
+          <div className="day-heading">
+            {dayLabel(dayItems[0].syncedAt)} · {dayItems.length} file
           </div>
-        )}
-
-        {accounts.map((acc) => {
-          const pct = acc.quota && acc.quota.limit
-            ? Math.min(100, Math.round((acc.quota.usage / acc.quota.limit) * 100))
-            : 0;
-          return (
-            <div className="card" key={acc.email}>
-              <div className="card-inner row-between">
-                <div className="row">
-                  <div className="avatar">
-                    {acc.picture ? (
-                      <img src={acc.picture} alt="" />
-                    ) : (
-                      (acc.name || acc.email)[0]?.toUpperCase()
-                    )}
+          <div className="grid">
+            {dayItems.map((item) => (
+              <div className="tile" key={item.id}>
+                <a
+                  className="tile-media"
+                  href={`/api/drive/view?id=${item.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Xem ${item.name}`}
+                >
+                  {item.mimeType?.startsWith("image/") ? (
+                    <img src={`/api/drive/thumbnail?id=${item.id}`} alt={item.name} loading="lazy" />
+                  ) : (
+                    <span className="video-glyph">▶</span>
+                  )}
+                </a>
+                <div className="tile-body">
+                  <div className="tile-name" title={item.name}>
+                    {item.name}
                   </div>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{acc.name}</div>
-                    <div className="meta">{acc.email}</div>
-                    {acc.quota ? (
-                      <>
-                        <div className="meta" style={{ marginTop: 4 }}>
-                          {bytes(acc.quota.usage)} đã dùng / {bytes(acc.quota.limit)} —{" "}
-                          {bytes(acc.quota.free)} trống
-                        </div>
-                        {acc.quota.limit && (
-                          <div className="quota-bar">
-                            <div className="quota-fill" style={{ width: `${pct}%` }} />
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="meta">{acc.error || "..."}</div>
-                    )}
+                  <div className="meta" style={{ color: "var(--text-muted)" }}>
+                    {item.accountEmail}
+                  </div>
+                  <div className="tile-actions">
+                    <button disabled={busyId === item.id} onClick={() => handleShare(item)}>
+                      {busyId === item.id ? "Đang tải..." : "Chia sẻ"}
+                    </button>
+                    <button disabled={busyId === item.id} onClick={() => handleDelete(item)}>
+                      Xoá
+                    </button>
                   </div>
                 </div>
-                <button className="btn btn-ghost-paper btn-small" onClick={() => disconnect(acc.email)}>
-                  Ngắt kết nối
-                </button>
               </div>
-            </div>
-          );
-        })}
-
-        <div className="row">
-          <a className="btn" href="/api/auth/google/start">
-            + Thêm tài khoản Google
-          </a>
-          {accounts.length > 0 && (
-            <a className="btn btn-ghost" href="/sync">
-              Đi tới Đồng bộ →
-            </a>
-          )}
+            ))}
+          </div>
         </div>
-      </div>
+      ))}
     </>
   );
 }
