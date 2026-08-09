@@ -11,6 +11,66 @@ function bytes(n) {
   return `${(n / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
+// Donut chart summarizing total used vs. free space across every connected
+// account. Only accounts with a numeric quota limit are counted — a Google
+// Workspace account with unlimited storage would otherwise make the whole
+// chart meaningless, so it's called out separately instead.
+function StorageDonut({ accounts }) {
+  const bounded = accounts.filter((a) => a.quota && typeof a.quota.limit === "number");
+  const hasUnlimited = accounts.some((a) => a.quota && a.quota.limit === null);
+
+  if (bounded.length === 0) return null;
+
+  const totalLimit = bounded.reduce((s, a) => s + a.quota.limit, 0);
+  const totalUsage = bounded.reduce((s, a) => s + a.quota.usage, 0);
+  const totalFree = Math.max(totalLimit - totalUsage, 0);
+  const usedPct = totalLimit ? (totalUsage / totalLimit) * 100 : 0;
+  const r = 15.9155; // circumference of this radius circle ≈ 100, so dasharray reads as %
+
+  return (
+    <div className="card">
+      <div className="card-inner">
+        <div className="donut-row">
+          <div className="donut-wrap">
+            <svg viewBox="0 0 36 36" className="donut-svg" role="img" aria-label={`Đã dùng ${usedPct.toFixed(0)} phần trăm dung lượng`}>
+              <circle cx="18" cy="18" r={r} fill="none" stroke="var(--paper-dim)" strokeWidth="3.6" />
+              <circle
+                cx="18"
+                cy="18"
+                r={r}
+                fill="none"
+                stroke="var(--teal)"
+                strokeWidth="3.6"
+                strokeLinecap="round"
+                strokeDasharray={`${usedPct} ${100 - usedPct}`}
+                transform="rotate(-90 18 18)"
+              />
+            </svg>
+            <div className="donut-center">
+              <span className="donut-pct">{usedPct.toFixed(0)}%</span>
+              <span className="donut-sub">đã dùng</span>
+            </div>
+          </div>
+          <div className="donut-legend">
+            <div className="donut-legend-row">
+              <span className="donut-dot donut-dot-used" />
+              Đã dùng: <strong>{bytes(totalUsage)}</strong>
+            </div>
+            <div className="donut-legend-row">
+              <span className="donut-dot donut-dot-free" />
+              Còn trống: <strong>{bytes(totalFree)}</strong>
+            </div>
+            <div className="meta" style={{ marginTop: 4 }}>
+              Tổng {bytes(totalLimit)} trên {bounded.length} tài khoản
+              {hasUnlimited ? " (chưa tính tài khoản không giới hạn dung lượng)" : ""}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +180,8 @@ export default function HomePage() {
             + Thêm tài khoản Google
           </a>
         </div>
+
+        {!loading && accounts.length > 0 && <StorageDonut accounts={accounts} />}
       </div>
     </>
   );
