@@ -5,7 +5,7 @@ Web app (Next.js, chạy như PWA trên iPhone & Android) để:
 1. Đăng nhập **nhiều tài khoản Google** cùng lúc (mỗi tài khoản cấp quyền Drive riêng).
 2. Mở trang, **tự chọn ảnh/video mới trong tuần** trên máy (qua trình chọn file của hệ điều hành — đây là giới hạn của trình duyệt, không có API nào quét ngầm thư viện ảnh khi app không mở).
 3. Bấm **Đồng bộ**: app tự bỏ qua file đã từng đồng bộ, rồi upload từng file vào tài khoản Google Drive đang **còn nhiều dung lượng trống nhất**.
-4. Trang **Thư viện**: xem lại toàn bộ ảnh/video đã đồng bộ từ mọi tài khoản, nhóm theo ngày đồng bộ, có thể **Xem / Xoá / Chia sẻ** ngay trên web. Nút **Chia sẻ** tải đúng file ảnh/video gốc về rồi mở hộp thoại chia sẻ của hệ điều hành (Web Share API) — gửi thẳng file thật sang Zalo, Facebook, Messenger... y như chia sẻ từ thư viện ảnh trên máy, không phải gửi link Google Drive.
+4. Trang **Thư viện**: xem lại toàn bộ ảnh/video đã đồng bộ từ mọi tài khoản, nhóm theo ngày đồng bộ, có thể **Xem / Xoá / Chia sẻ** ngay trên web. Bấm vào ảnh/video mở khung xem toàn màn hình ngay trong trang (không rời trang) — vuốt trái/phải trong khung xem để chuyển sang ảnh kế tiếp/trước đó, đóng lại thì quay đúng về vị trí đã cuộn tới, không bị nhảy lên đầu trang. Nút **Chia sẻ** tải đúng file ảnh/video gốc về rồi mở hộp thoại chia sẻ của hệ điều hành (Web Share API) — gửi thẳng file thật sang Zalo, Facebook, Messenger... y như chia sẻ từ thư viện ảnh trên máy, không phải gửi link Google Drive.
 5. Xoá ảnh gốc trên điện thoại là thao tác **thủ công của người dùng** sau khi đồng bộ xong (trình duyệt không được phép tự xoá ảnh trong Photos/Gallery vì lý do bảo mật hệ điều hành — kể cả Android cũng cần người dùng xác nhận qua hộp thoại hệ thống).
 
 ## Vì sao kiến trúc thế này
