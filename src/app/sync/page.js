@@ -6,6 +6,42 @@ function dedupeKeyOf(file) {
   return `${file.name}__${file.size}__${file.lastModified}`;
 }
 
+// Shows (or updates, thanks to the fixed `tag`) a real OS-level
+// notification — this is what lets someone switch away to another app and
+// still see how the sync is going from the notification shade, without
+// needing to keep this tab in the foreground. It does not, by itself, make
+// the upload loop keep running if the OS fully suspends the tab — nothing
+// on the web platform can guarantee that — but as long as the tab stays
+// alive in the background (the common case on Android), this keeps the
+// person informed without having to reopen the page.
+function notify(title, body) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  try {
+    new Notification(title, {
+      body,
+      tag: "photo-sync-progress",
+      icon: "/icon-192.png",
+      silent: true,
+    });
+  } catch {
+    // A handful of browsers expose the Notification API but don't actually
+    // support the constructor (e.g. some in-app browsers) — fail quietly
+    // rather than interrupting the sync over a notification.
+  }
+}
+
+async function ensureNotificationPermission() {
+  if (typeof window === "undefined" || !("Notification" in window)) return false;
+  if (Notification.permission === "granted") return true;
+  if (Notification.permission === "denied") return false;
+  try {
+    return (await Notification.requestPermission()) === "granted";
+  } catch {
+    return false;
+  }
+}
+
 // Sends the whole file to Google in ~4MB pieces, each one relayed through
 // our own server (see /api/drive/upload/chunk for why: it keeps every
 // browser request same-origin, so nothing here depends on whether Google's
@@ -202,6 +238,25 @@ export default function SyncPage() {
     if (targets.length === 0) return;
     setRunning(true);
 
+    const notifyEnabled = await ensureNotificationPermission();
+    const total = targets.length;
+    let completed = 0;
+    let okCount = 0;
+    let skipCount = 0;
+    let errCount = 0;
+
+    function pushProgress() {
+      if (!notifyEnabled) return;
+      const done = completed >= total;
+      notify(
+        done ? "Đồng bộ hoàn tất" : "Đang đồng bộ ảnh/video",
+        `${completed}/${total} file — ${okCount} đã lưu, ${skipCount} bỏ qua${
+          errCount ? `, ${errCount} lỗi` : ""
+        }`
+      );
+    }
+    pushProgress();
+
     let cursor = 0;
     async function worker() {
       while (cursor < targets.length) {
@@ -222,6 +277,7 @@ export default function SyncPage() {
                 i === idx ? { ...r, status: "skip", message: data.reason } : r
               )
             );
+            skipCount += 1;
           } else {
             setRows((prev) =>
               prev.map((r, i) =>
@@ -230,12 +286,17 @@ export default function SyncPage() {
                   : r
               )
             );
+            okCount += 1;
           }
         } catch (err) {
           setRows((prev) =>
             prev.map((r, i) => (i === idx ? { ...r, status: "error", message: err.message } : r))
           );
+          errCount += 1;
         }
+
+        completed += 1;
+        pushProgress();
       }
     }
 
@@ -365,6 +426,13 @@ export default function SyncPage() {
           <button className="btn" disabled={selectedRows.length === 0 || running} onClick={startSync}>
             {running ? "Đang đồng bộ..." : `Bắt đầu đồng bộ (${selectedRows.length} file)`}
           </button>
+
+          {!running && selectedRows.length > 0 && finishedCount === 0 && (
+            <p className="field-hint">
+              Trình duyệt sẽ hỏi quyền gửi thông báo — cho phép để theo dõi tiến trình từ
+              thanh thông báo, có thể thoát ra dùng app khác trong lúc chờ.
+            </p>
+          )}
 
           {selectedRows.length > 0 && (running || finishedCount > 0) && (
             <div className="progress-row">
