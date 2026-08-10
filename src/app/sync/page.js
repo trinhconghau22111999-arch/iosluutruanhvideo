@@ -286,7 +286,7 @@ export default function SyncPage() {
                   checked={allSelected}
                   onChange={(e) => toggleSelectAll(e.target.checked)}
                 />
-                Chọn tất cả ({selectedRows.length}/{rows.length})
+                Chọn tất cả
               </label>
             ) : (
               <span className="field-hint">Chưa chọn file nào.</span>

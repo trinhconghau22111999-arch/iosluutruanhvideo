@@ -153,8 +153,7 @@ export default function HomePage() {
                     {acc.quota ? (
                       <>
                         <div className="meta" style={{ marginTop: 4 }}>
-                          {bytes(acc.quota.usage)} đã dùng / {bytes(acc.quota.limit)} —{" "}
-                          {bytes(acc.quota.free)} trống
+                          {bytes(acc.quota.usage)} đã dùng / {bytes(acc.quota.limit)}
                         </div>
                         {acc.quota.limit && (
                           <div className="quota-bar">

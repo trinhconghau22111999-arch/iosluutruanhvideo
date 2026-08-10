@@ -146,7 +146,7 @@ export default function LibraryPage() {
   return (
     <>
       <div className="page-head">
-        <h1 className="page-title">Thư viện đã đồng bộ</h1>
+        <h1 className="page-title">Thư viện</h1>
         <div className="title-rule" aria-hidden="true" />
         {!loading && totals.all > 0 && (
           <p className="page-count">

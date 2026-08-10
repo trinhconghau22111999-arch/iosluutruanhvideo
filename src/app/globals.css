@@ -1,9 +1,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Special+Elite&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
 :root {
-  --ink: #14120d;
-  --ink-soft: #1d1a13;
-  --ink-line: #3a3527;
+  --ink: #170a2e;
+  --ink-soft: #271040;
+  --ink-line: #5b2f8f;
   --paper: #ece4d0;
   --paper-dim: #dcd2b8;
   --paper-line: #46402c;
@@ -12,8 +12,8 @@
   --amber: #c98a3a;
   --amber-soft: rgba(201, 138, 58, 0.16);
   --red-stamp: #a4402f;
-  --text-onink: #efe9d8;
-  --text-muted: #a89f86;
+  --text-onink: #f1e9ff;
+  --text-muted: #b6a3d6;
   --radius: 3px;
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
 }
@@ -55,10 +55,14 @@ a {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  /* Faint grain over the ink background gives the archive paper a bit of
-     tooth instead of a flat digital fill. */
-  background-image: radial-gradient(circle at 1px 1px, rgba(239, 233, 216, 0.035) 1px, transparent 0);
-  background-size: 22px 22px;
+  /* Two soft neon glows (violet + magenta) behind the fine grain texture
+     give the purple background some depth instead of a flat fill. */
+  background-image: radial-gradient(circle at 1px 1px, rgba(241, 233, 255, 0.035) 1px, transparent 0),
+    radial-gradient(ellipse 60% 40% at 15% 0%, rgba(168, 85, 247, 0.16), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 100% 15%, rgba(217, 70, 239, 0.12), transparent 60%);
+  background-size: 22px 22px, auto, auto;
+  background-repeat: repeat, no-repeat, no-repeat;
+  background-attachment: fixed, fixed, fixed;
 }
 
 .topbar {
