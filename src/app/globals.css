@@ -178,6 +178,14 @@ main {
   background: var(--amber);
 }
 
+.page-count {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin: 12px 0 0;
+}
+
 .page-sub {
   color: var(--text-muted);
   margin: 0 0 32px;

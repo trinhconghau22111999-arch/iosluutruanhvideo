@@ -36,6 +36,11 @@ export default function LibraryPage() {
     setLoading(false);
   }
 
+  const totals = useMemo(() => {
+    const videoCount = items.filter((i) => !i.mimeType?.startsWith("image/")).length;
+    return { all: items.length, image: items.length - videoCount, video: videoCount };
+  }, [items]);
+
   const groups = useMemo(() => {
     const map = new Map();
     for (const item of items) {
@@ -143,6 +148,11 @@ export default function LibraryPage() {
       <div className="page-head">
         <h1 className="page-title">Thư viện đã đồng bộ</h1>
         <div className="title-rule" aria-hidden="true" />
+        {!loading && totals.all > 0 && (
+          <p className="page-count">
+            {totals.all} file · {totals.image} ảnh · {totals.video} video
+          </p>
+        )}
       </div>
 
       {loading && <p className="field-hint">Đang tải...</p>}
