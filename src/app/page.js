@@ -169,7 +169,6 @@ export default function LibraryPage() {
         <div className="day-group" key={dayKey}>
           <div className="day-heading">
             <span>{dayLabel(dayItems[0].syncedAt)}</span>
-            <span className="count-badge">{dayItems.length} file</span>
           </div>
           <div className="grid">
             {dayItems.map((item) => {
