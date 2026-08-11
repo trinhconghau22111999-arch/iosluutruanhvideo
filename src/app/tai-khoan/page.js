@@ -74,8 +74,6 @@ function StorageDonut({ accounts }) {
 export default function HomePage() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [lastSynced, setLastSynced] = useState(null);
   const [notice, setNotice] = useState(null);
 
   useEffect(() => {
@@ -91,30 +89,12 @@ export default function HomePage() {
     load();
   }, []);
 
-  // Keeps the "đã dùng / còn trống" numbers current without a manual reload
-  // — useful since Drive storage can change from outside this app (deleting
-  // files directly in Drive, other apps writing to the same account, etc).
-  // Only ticks while this tab is actually visible, so it doesn't burn
-  // requests in the background.
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (document.visibilityState === "visible") load({ silent: true });
-    }, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  async function load({ silent = false } = {}) {
-    if (silent) setRefreshing(true);
-    else setLoading(true);
-    try {
-      const res = await fetch("/api/accounts");
-      const data = await res.json();
-      setAccounts(data.accounts || []);
-      setLastSynced(new Date());
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  async function load() {
+    setLoading(true);
+    const res = await fetch("/api/accounts");
+    const data = await res.json();
+    setAccounts(data.accounts || []);
+    setLoading(false);
   }
 
   async function disconnect(email) {
