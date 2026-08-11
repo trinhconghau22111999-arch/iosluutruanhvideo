@@ -72,6 +72,7 @@ Sau đó deploy bằng Vercel (kết nối thẳng repo GitHub, import biến m�
 3. Bấm **Bắt đầu đồng bộ** → app bỏ qua file trùng, upload phần còn lại, ưu tiên tài khoản trống nhiều nhất, hiện tiến trình từng file.
 4. Vào **Thư viện** → xem lại tất cả ảnh/video theo ngày, bấm thẳng vào ảnh/video để xem, hoặc Chia sẻ / Xoá.
 5. Tự tay xoá ảnh gốc trên điện thoại (Photos/Gallery) sau khi đã kiểm tra đồng bộ xong.
+6. **Cân bằng dung lượng** (trang Tài khoản, cần ít nhất 2 tài khoản): bấm "Kiểm tra & lên kế hoạch cân bằng" → app tính toán nên chuyển file nào từ tài khoản đang đầy hơn sang tài khoản còn trống hơn, **hiện danh sách cụ thể để bạn xem trước** (tên file, từ tài khoản nào sang tài khoản nào) → bấm "Xác nhận chuyển" mới thật sự thực hiện. Cách hoạt động: server tải file từ tài khoản nguồn và đẩy thẳng sang tài khoản đích (không qua trình duyệt), chỉ xoá bản gốc sau khi bản sao mới đã lưu thành công — nên không có rủi ro mất file giữa chừng.
 
 **Chuyển trang:** vuốt trái/phải trên màn hình để di chuyển qua lại giữa 3 trang theo đúng thứ tự tab (Thư viện → Đồng bộ → Tài khoản), hoặc bấm thẳng vào tên trang trên thanh menu.
 

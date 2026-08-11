@@ -74,6 +74,8 @@ function StorageDonut({ accounts }) {
 export default function HomePage() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastSynced, setLastSynced] = useState(null);
   const [notice, setNotice] = useState(null);
 
   useEffect(() => {
@@ -89,12 +91,30 @@ export default function HomePage() {
     load();
   }, []);
 
-  async function load() {
-    setLoading(true);
-    const res = await fetch("/api/accounts");
-    const data = await res.json();
-    setAccounts(data.accounts || []);
-    setLoading(false);
+  // Keeps the "đã dùng / còn trống" numbers current without a manual reload
+  // — useful since Drive storage can change from outside this app (deleting
+  // files directly in Drive, other apps writing to the same account, etc).
+  // Only ticks while this tab is actually visible, so it doesn't burn
+  // requests in the background.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") load({ silent: true });
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  async function load({ silent = false } = {}) {
+    if (silent) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const res = await fetch("/api/accounts");
+      const data = await res.json();
+      setAccounts(data.accounts || []);
+      setLastSynced(new Date());
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }
 
   async function disconnect(email) {
@@ -104,6 +124,48 @@ export default function HomePage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
+    load();
+  }
+
+  const [planLoading, setPlanLoading] = useState(false);
+  const [plan, setPlan] = useState(null); // { moves, totalBytes, note }
+  const [executing, setExecuting] = useState(false);
+  const [moveProgress, setMoveProgress] = useState({ done: 0, errors: 0 });
+
+  async function fetchPlan() {
+    setPlanLoading(true);
+    setPlan(null);
+    try {
+      const res = await fetch("/api/accounts/rebalance/plan", { method: "POST" });
+      const data = await res.json();
+      setPlan(data);
+    } finally {
+      setPlanLoading(false);
+    }
+  }
+
+  async function confirmMoves() {
+    if (!plan || plan.moves.length === 0) return;
+    setExecuting(true);
+    let done = 0;
+    let errors = 0;
+    for (const move of plan.moves) {
+      try {
+        const res = await fetch("/api/accounts/rebalance/move", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: move.id, toEmail: move.toEmail }),
+        });
+        if (!res.ok) errors += 1;
+      } catch {
+        errors += 1;
+      }
+      done += 1;
+      setMoveProgress({ done, errors });
+    }
+    setExecuting(false);
+    setPlan(null);
+    setMoveProgress({ done: 0, errors: 0 });
     load();
   }
 
@@ -181,6 +243,79 @@ export default function HomePage() {
         </div>
 
         {!loading && accounts.length > 0 && <StorageDonut accounts={accounts} />}
+
+        {!loading && accounts.length > 1 && (
+          <div className="card">
+            <div className="card-inner stack">
+              <div>
+                <div style={{ fontWeight: 600 }}>Cân bằng dung lượng</div>
+                <p className="field-hint" style={{ marginTop: 4 }}>
+                  Chuyển bớt ảnh/video đã đồng bộ từ tài khoản đang đầy hơn sang tài khoản
+                  còn trống hơn, để dung lượng dùng đều giữa các tài khoản. App sẽ luôn cho
+                  bạn xem trước danh sách sẽ chuyển gì trước khi thật sự thực hiện.
+                </p>
+              </div>
+
+              {!plan && !executing && (
+                <button className="btn btn-ghost-paper btn-small" disabled={planLoading} onClick={fetchPlan}>
+                  {planLoading ? "Đang tính toán..." : "Kiểm tra & lên kế hoạch cân bằng"}
+                </button>
+              )}
+
+              {plan && plan.moves.length === 0 && !executing && (
+                <div className="banner banner-ok" style={{ margin: 0 }}>
+                  {plan.note || "Dung lượng giữa các tài khoản đã khá cân bằng, không cần chuyển gì."}
+                </div>
+              )}
+
+              {plan && plan.moves.length > 0 && !executing && (
+                <>
+                  <div className="banner banner-ok" style={{ margin: 0 }}>
+                    Sẽ chuyển <strong>{plan.moves.length} file</strong> (tổng {bytes(plan.totalBytes)})
+                    để cân bằng dung lượng.
+                  </div>
+                  <div className="file-list">
+                    {plan.moves.map((m) => (
+                      <div className="file-row" key={m.id}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {m.name} ({bytes(m.size)})
+                        </span>
+                        <span className="status">
+                          {m.fromEmail.split("@")[0]} → {m.toEmail.split("@")[0]}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="row">
+                    <button className="btn btn-small" onClick={confirmMoves}>
+                      Xác nhận chuyển
+                    </button>
+                    <button className="btn btn-ghost-paper btn-small" onClick={() => setPlan(null)}>
+                      Huỷ
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {executing && (
+                <>
+                  <p className="field-hint">
+                    Đang chuyển file {moveProgress.done}/{plan?.moves.length}
+                    {moveProgress.errors > 0 ? ` (${moveProgress.errors} lỗi)` : ""}... đừng đóng trang.
+                  </p>
+                  <div className="progress-track">
+                    <div
+                      className="progress-fill"
+                      style={{
+                        width: `${plan ? Math.round((moveProgress.done / plan.moves.length) * 100) : 0}%`,
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

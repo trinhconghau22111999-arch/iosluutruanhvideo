@@ -142,3 +142,26 @@ export async function getFileMediaStream(email, fileId) {
   );
   return res.data;
 }
+
+// Moves a file from one connected account to another: streams the bytes
+// straight from the source account's Drive into a fresh upload on the
+// destination account's Drive, without buffering the whole file in server
+// memory. Used by the storage-rebalancing feature. Caller is responsible
+// for deleting the original afterward once this succeeds.
+export async function copyFileToAccount(fromEmail, toEmail, fileId, { name, mimeType, size }) {
+  const stream = await getFileMediaStream(fromEmail, fileId);
+  const sessionUrl = await initResumableUpload(toEmail, { name, mimeType, size });
+
+  const res = await fetch(sessionUrl, {
+    method: "PUT",
+    headers: { "Content-Length": String(size) },
+    body: stream,
+    duplex: "half",
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Không sao chép được sang tài khoản đích (${res.status}): ${text}`);
+  }
+  return await res.json();
+}

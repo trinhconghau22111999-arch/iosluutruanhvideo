@@ -40,6 +40,15 @@ export async function listLibrary() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+// Largest-first so the rebalancer can shed an account's usage by moving the
+// fewest files possible, instead of shuffling lots of small ones around.
+export async function listFilesForAccount(email) {
+  const snap = await db.collection(COLLECTION).where("accountEmail", "==", email).get();
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.size || 0) - (a.size || 0));
+}
+
 export async function deleteLibraryEntry(id) {
   await db.collection(COLLECTION).doc(id).delete();
 }
