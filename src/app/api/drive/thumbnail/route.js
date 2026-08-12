@@ -3,11 +3,12 @@ import { getLibraryEntry } from "@/lib/library";
 
 export const dynamic = "force-dynamic";
 
-// Google's thumbnailLink defaults to a smallish size (e.g. "=s220"); bump it
-// up a bit so grid tiles stay crisp on high-DPI phone screens while staying
-// far smaller/faster than the original file.
-function upsizeThumbnailUrl(url) {
-  return /=s\d+$/.test(url) ? url.replace(/=s\d+$/, "=s400") : `${url}=s400`;
+// Drive's thumbnailLink defaults to a smallish size (e.g. "=s220"); a grid
+// tile only needs to be about this big on screen, so requesting a small
+// size keeps the payload tiny and the grid fast — this works for both
+// images and videos, since Drive generates a frame preview for videos too.
+function resizeThumbnailUrl(url, size = 100) {
+  return /=s\d+$/.test(url) ? url.replace(/=s\d+$/, `=s${size}`) : `${url}=s${size}`;
 }
 
 export async function GET(request) {
@@ -16,19 +17,16 @@ export async function GET(request) {
   const entry = await getLibraryEntry(id);
   if (!entry) return new Response("Không tìm thấy", { status: 404 });
 
-  // Only proxy actual bytes for images; videos are opened directly in Drive
-  // to avoid streaming large files through the server.
-  if (!entry.mimeType?.startsWith("image/")) {
-    return new Response("Không hỗ trợ xem trước video ở đây", { status: 400 });
-  }
+  const isImage = entry.mimeType?.startsWith("image/");
 
-  // Google already generates a small, fast-loading thumbnail for every
-  // image — use that for the grid instead of streaming the full original,
-  // which can easily be tens of times larger and much slower to load when a
-  // whole page of tiles is loading at once.
+  // Google already generates a small, fast-loading thumbnail for both
+  // images and videos — use that for the grid instead of streaming the
+  // full original, which can easily be tens (or for video, hundreds) of
+  // times larger and much slower to load when a whole page of tiles is
+  // loading at once.
   if (entry.thumbnailLink) {
     try {
-      const res = await fetch(upsizeThumbnailUrl(entry.thumbnailLink));
+      const res = await fetch(resizeThumbnailUrl(entry.thumbnailLink, 100));
       if (res.ok && res.body) {
         return new Response(res.body, {
           headers: {
@@ -38,9 +36,16 @@ export async function GET(request) {
         });
       }
     } catch {
-      // Fall through to the full-size proxy below — e.g. Drive hasn't
-      // finished generating a thumbnail yet for a just-uploaded file.
+      // Fall through below — e.g. Drive hasn't finished generating a
+      // thumbnail yet for a just-uploaded file.
     }
+  }
+
+  // No thumbnail available. For images we can still fall back to streaming
+  // the full original; for video there's nothing sensible to show here, so
+  // the client falls back to a plain play-icon glyph instead.
+  if (!isImage) {
+    return new Response("Chưa có ảnh xem trước", { status: 404 });
   }
 
   const stream = await getFileMediaStream(entry.accountEmail, entry.driveFileId);

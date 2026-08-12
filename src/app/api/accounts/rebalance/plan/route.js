@@ -4,13 +4,17 @@ import { listAccounts, listFilesForAccount } from "@/lib/library";
 
 export const dynamic = "force-dynamic";
 
-// A move is only worth doing once the gap from the target is at least this
-// big — avoids constantly shuffling files around to fix tiny, meaningless
-// differences.
-const TOLERANCE_BYTES = 200 * 1024 * 1024; // 200MB
+// "percent" mode: a move is only worth doing once an account's gap from its
+// own target is at least this big — avoids constantly shuffling files
+// around to fix tiny, meaningless differences.
+const PERCENT_TOLERANCE_BYTES = 200 * 1024 * 1024; // 200MB
+// "even" mode: keep moving files until the gap between the fullest and the
+// emptiest account's own synced data is within this amount.
+const EVEN_MAX_GAP_BYTES = 100 * 1024 * 1024; // 100MB
 // Never plan a move that would leave the destination with less real free
 // space than this, regardless of mode — capacity is always a hard limit.
 const SAFETY_MARGIN_BYTES = 100 * 1024 * 1024; // 100MB
+const MAX_ITERATIONS = 500; // safety valve, not a realistic ceiling for personal use
 
 // Computes which of the app's own synced files should move from
 // over-target accounts to under-target ones, without touching anything yet.
@@ -21,9 +25,9 @@ const SAFETY_MARGIN_BYTES = 100 * 1024 * 1024; // 100MB
 //  - "percent": target is proportional to each account's own capacity, so
 //    a 15GB account ends up holding roughly 3x as much as a 5GB account —
 //    both land at about the same % used.
-//  - "even": target is the app's total synced bytes split equally across
-//    every connected account, ignoring how big each account's own capacity
-//    is (e.g. 10MB of synced photos over 5 accounts → ~2MB each).
+//  - "even": keeps moving files from the fullest account (of the app's own
+//    synced data) to the emptiest one until the two are within 100MB of
+//    each other, ignoring how big each account's own Drive capacity is.
 // Real free space (from Google) is always respected as a hard limit on
 // where a file can land, no matter which mode is picked.
 export async function POST(request) {
@@ -66,78 +70,91 @@ export async function POST(request) {
     filesByEmail[a.email] = files;
     ownBytesByEmail[a.email] = files.reduce((s, f) => s + (f.size || 0), 0);
   }
-  const totalOwnBytes = Object.values(ownBytesByEmail).reduce((s, n) => s + n, 0);
-
-  // currentByEmail / targetByEmail define the balancing basis — what we're
-  // trying to equalize — depending on the chosen mode. Real Drive free
-  // space (freeByEmail below) is tracked separately and always enforced as
-  // the hard constraint on whether a move is actually possible.
-  const currentByEmail = {};
-  const targetByEmail = {};
-
-  if (mode === "even") {
-    const evenTarget = totalOwnBytes / bounded.length;
-    bounded.forEach((a) => {
-      currentByEmail[a.email] = ownBytesByEmail[a.email];
-      targetByEmail[a.email] = evenTarget;
-    });
-  } else {
-    const totalUsage = bounded.reduce((s, a) => s + a.quota.usage, 0);
-    const totalLimit = bounded.reduce((s, a) => s + a.quota.limit, 0);
-    const avgPercentUsed = totalLimit ? totalUsage / totalLimit : 0;
-    bounded.forEach((a) => {
-      currentByEmail[a.email] = a.quota.usage;
-      targetByEmail[a.email] = a.quota.limit * avgPercentUsed;
-    });
-  }
 
   const freeByEmail = {};
   bounded.forEach((a) => (freeByEmail[a.email] = a.quota.free));
 
-  const sources = bounded
-    .filter((a) => currentByEmail[a.email] - targetByEmail[a.email] > TOLERANCE_BYTES)
-    .sort((a, b) => (targetByEmail[b.email] - currentByEmail[b.email]) - (targetByEmail[a.email] - currentByEmail[a.email])); // most over-target first
-
   const moves = [];
   let totalBytes = 0;
 
-  for (const src of sources) {
-    let need = currentByEmail[src.email] - targetByEmail[src.email];
-    const files = filesByEmail[src.email];
+  if (mode === "even") {
+    const currentByEmail = { ...ownBytesByEmail };
+    const movedIds = new Set();
 
-    for (const file of files) {
-      if (need <= TOLERANCE_BYTES) break;
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
+      const richest = bounded.reduce((a, b) => (currentByEmail[a.email] > currentByEmail[b.email] ? a : b));
+      const poorest = bounded.reduce((a, b) => (currentByEmail[a.email] < currentByEmail[b.email] ? a : b));
+      const gap = currentByEmail[richest.email] - currentByEmail[poorest.email];
+      if (gap <= EVEN_MAX_GAP_BYTES || richest.email === poorest.email) break;
+
+      const candidates = filesByEmail[richest.email].filter((f) => !movedIds.has(f.id));
+      if (candidates.length === 0) break; // nothing left to move out of the richest account
+
+      // Prefer a file that closes the gap without overshooting past the
+      // poorest account; otherwise take the smallest available so progress
+      // is still made without a wild overcorrection.
+      const fitting = candidates.filter((f) => (f.size || 0) <= gap);
+      const file = fitting.length > 0 ? fitting[0] : candidates[candidates.length - 1];
       const size = file.size || 0;
 
-      // Prefer whichever eligible account is currently furthest under its
-      // own target, recomputed each step since earlier planned moves in
-      // this same run shift who has the most room left.
-      const dest = bounded
-        .filter((a) => a.email !== src.email)
-        .filter((a) => targetByEmail[a.email] - currentByEmail[a.email] > TOLERANCE_BYTES / 2)
-        .filter((a) => freeByEmail[a.email] - size > SAFETY_MARGIN_BYTES)
-        .sort(
-          (a, b) =>
-            (targetByEmail[b.email] - currentByEmail[b.email]) -
-            (targetByEmail[a.email] - currentByEmail[a.email])
-        )[0];
+      if (freeByEmail[poorest.email] - size <= SAFETY_MARGIN_BYTES) break; // destination has no room
 
-      if (!dest) continue;
-
-      moves.push({
-        id: file.id,
-        name: file.name,
-        size,
-        fromEmail: src.email,
-        toEmail: dest.email,
-      });
-
-      currentByEmail[src.email] -= size;
-      currentByEmail[dest.email] += size;
-      freeByEmail[src.email] += size;
-      freeByEmail[dest.email] -= size;
-      need -= size;
+      moves.push({ id: file.id, name: file.name, size, fromEmail: richest.email, toEmail: poorest.email });
+      movedIds.add(file.id);
+      currentByEmail[richest.email] -= size;
+      currentByEmail[poorest.email] += size;
+      freeByEmail[richest.email] += size;
+      freeByEmail[poorest.email] -= size;
       totalBytes += size;
+    }
+  } else {
+    const totalUsage = bounded.reduce((s, a) => s + a.quota.usage, 0);
+    const totalLimit = bounded.reduce((s, a) => s + a.quota.limit, 0);
+    const avgPercentUsed = totalLimit ? totalUsage / totalLimit : 0;
+
+    const currentByEmail = {};
+    const targetByEmail = {};
+    bounded.forEach((a) => {
+      currentByEmail[a.email] = a.quota.usage;
+      targetByEmail[a.email] = a.quota.limit * avgPercentUsed;
+    });
+
+    const sources = bounded
+      .filter((a) => currentByEmail[a.email] - targetByEmail[a.email] > PERCENT_TOLERANCE_BYTES)
+      .sort(
+        (a, b) =>
+          (targetByEmail[b.email] - currentByEmail[b.email]) -
+          (targetByEmail[a.email] - currentByEmail[a.email])
+      ); // most over-target first
+
+    for (const src of sources) {
+      let need = currentByEmail[src.email] - targetByEmail[src.email];
+      const files = filesByEmail[src.email];
+
+      for (const file of files) {
+        if (need <= PERCENT_TOLERANCE_BYTES) break;
+        const size = file.size || 0;
+
+        const dest = bounded
+          .filter((a) => a.email !== src.email)
+          .filter((a) => targetByEmail[a.email] - currentByEmail[a.email] > PERCENT_TOLERANCE_BYTES / 2)
+          .filter((a) => freeByEmail[a.email] - size > SAFETY_MARGIN_BYTES)
+          .sort(
+            (a, b) =>
+              (targetByEmail[b.email] - currentByEmail[b.email]) -
+              (targetByEmail[a.email] - currentByEmail[a.email])
+          )[0];
+
+        if (!dest) continue;
+
+        moves.push({ id: file.id, name: file.name, size, fromEmail: src.email, toEmail: dest.email });
+        currentByEmail[src.email] -= size;
+        currentByEmail[dest.email] += size;
+        freeByEmail[src.email] += size;
+        freeByEmail[dest.email] -= size;
+        need -= size;
+        totalBytes += size;
+      }
     }
   }
 

@@ -11,6 +11,24 @@ function bytes(n) {
   return `${(n / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
+// Notifies with the browser/OS's normal notification sound (unlike the
+// silent progress notifications on the sync page) — this one marks the end
+// of a rebalance run, so a little "ding" is the point.
+async function notifyWithSound(title, body) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  try {
+    if (Notification.permission === "default") {
+      await Notification.requestPermission();
+    }
+    if (Notification.permission === "granted") {
+      new Notification(title, { body, icon: "/icon-192.png" });
+    }
+  } catch {
+    // No sound notification available here — the on-screen banner still
+    // reports the same result either way.
+  }
+}
+
 // Donut chart summarizing total used vs. free space across every connected
 // account. Only accounts with a numeric quota limit are counted — a Google
 // Workspace account with unlimited storage would otherwise make the whole
@@ -151,6 +169,10 @@ export default function HomePage() {
     setExecuting(false);
     setPlan(null);
     setMoveProgress({ done: 0, errors: 0 });
+    notifyWithSound(
+      "Cân bằng dung lượng hoàn tất",
+      errors > 0 ? `Đã chuyển ${done - errors}/${done} file, ${errors} lỗi.` : `Đã chuyển xong ${done} file.`
+    );
     load();
   }
 

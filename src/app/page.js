@@ -13,6 +13,36 @@ function dayLabel(iso) {
   });
 }
 
+// Grid thumbnail for one tile. Tries Drive's small generated thumbnail for
+// any file type — images and videos alike — and falls back to a plain play
+// glyph if none is available yet (e.g. Drive hasn't finished generating one
+// for a just-uploaded video). Videos also get a small play badge overlaid
+// on top of their frame preview so they stay visually distinct from photos.
+function TileThumb({ item }) {
+  const [failed, setFailed] = useState(false);
+  const isVideo = !item.mimeType?.startsWith("image/");
+
+  if (failed) {
+    return <span className="video-glyph">▶</span>;
+  }
+
+  return (
+    <>
+      <img
+        src={`/api/drive/thumbnail?id=${item.id}`}
+        alt={item.name}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+      {isVideo && (
+        <span className="tile-play-badge" aria-hidden="true">
+          ▶
+        </span>
+      )}
+    </>
+  );
+}
+
 export default function LibraryPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -181,11 +211,7 @@ export default function LibraryPage() {
                     onClick={() => setViewerIndex(flatIndex)}
                     aria-label={`Xem ${item.name}`}
                   >
-                    {item.mimeType?.startsWith("image/") ? (
-                      <img src={`/api/drive/thumbnail?id=${item.id}`} alt={item.name} loading="lazy" />
-                    ) : (
-                      <span className="video-glyph">▶</span>
-                    )}
+                    <TileThumb item={item} />
                   </button>
                   <div className="tile-body">
                     <div className="tile-name" title={item.name}>
