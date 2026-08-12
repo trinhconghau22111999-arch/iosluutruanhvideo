@@ -111,12 +111,17 @@ export default function HomePage() {
   const [plan, setPlan] = useState(null); // { moves, totalBytes, note }
   const [executing, setExecuting] = useState(false);
   const [moveProgress, setMoveProgress] = useState({ done: 0, errors: 0 });
+  const [balanceMode, setBalanceMode] = useState("percent"); // "percent" | "even"
 
   async function fetchPlan() {
     setPlanLoading(true);
     setPlan(null);
     try {
-      const res = await fetch("/api/accounts/rebalance/plan", { method: "POST" });
+      const res = await fetch("/api/accounts/rebalance/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: balanceMode }),
+      });
       const data = await res.json();
       setPlan(data);
     } finally {
@@ -237,9 +242,39 @@ export default function HomePage() {
               </div>
 
               {!plan && !executing && (
-                <button className="btn btn-ghost-paper btn-small" disabled={planLoading} onClick={fetchPlan}>
-                  {planLoading ? "Đang tính toán..." : "Kiểm tra & lên kế hoạch cân bằng"}
-                </button>
+                <div className="stack" style={{ gap: 10 }}>
+                  <div className="stack" style={{ gap: 6 }}>
+                    <label className="row" style={{ cursor: "pointer", gap: 8 }}>
+                      <input
+                        type="radio"
+                        name="balance-mode"
+                        checked={balanceMode === "percent"}
+                        onChange={() => setBalanceMode("percent")}
+                      />
+                      <span>
+                        <strong>Theo % dung lượng</strong> — tài khoản nào tổng dung lượng lớn
+                        hơn thì được lưu nhiều hơn theo đúng tỉ lệ (vd tài khoản 15GB sẽ lưu
+                        gấp 3 tài khoản 5GB, cả hai cùng đầy khoảng bao nhiêu %).
+                      </span>
+                    </label>
+                    <label className="row" style={{ cursor: "pointer", gap: 8 }}>
+                      <input
+                        type="radio"
+                        name="balance-mode"
+                        checked={balanceMode === "even"}
+                        onChange={() => setBalanceMode("even")}
+                      />
+                      <span>
+                        <strong>Chia đều dữ liệu thật</strong> — không quan tâm tài khoản nào
+                        tổng dung lượng bao nhiêu, cứ chia đều số ảnh/video đã đồng bộ cho các
+                        tài khoản (vd 10MB dữ liệu, 5 tài khoản → mỗi tài khoản ~2MB).
+                      </span>
+                    </label>
+                  </div>
+                  <button className="btn btn-ghost-paper btn-small" disabled={planLoading} onClick={fetchPlan}>
+                    {planLoading ? "Đang tính toán..." : "Kiểm tra & lên kế hoạch cân bằng"}
+                  </button>
+                </div>
               )}
 
               {plan && plan.moves.length === 0 && !executing && (
@@ -252,7 +287,8 @@ export default function HomePage() {
                 <>
                   <div className="banner banner-ok" style={{ margin: 0 }}>
                     Sẽ chuyển <strong>{plan.moves.length} file</strong> (tổng {bytes(plan.totalBytes)})
-                    để cân bằng dung lượng.
+                    để cân bằng dung lượng theo kiểu{" "}
+                    <strong>{plan.mode === "even" ? "chia đều dữ liệu thật" : "theo % dung lượng"}</strong>.
                   </div>
                   <div className="file-list">
                     {plan.moves.map((m) => (
