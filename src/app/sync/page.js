@@ -32,13 +32,13 @@ function notify(title, body) {
 }
 
 async function ensureNotificationPermission() {
-  if (typeof window === "undefined" || !("Notification" in window)) return false;
-  if (Notification.permission === "granted") return true;
-  if (Notification.permission === "denied") return false;
+  if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
+  if (Notification.permission === "granted") return "granted";
+  if (Notification.permission === "denied") return "denied";
   try {
-    return (await Notification.requestPermission()) === "granted";
+    return await Notification.requestPermission(); // "granted" | "denied" | "default"
   } catch {
-    return false;
+    return "unsupported";
   }
 }
 
@@ -142,6 +142,7 @@ export default function SyncPage() {
   // at once.
   const [rows, setRows] = useState([]); // { file, selected, status, message }
   const [running, setRunning] = useState(false);
+  const [notifyStatus, setNotifyStatus] = useState(null); // "granted" | "denied" | "default" | "unsupported"
   const wakeLockRef = useRef(null);
 
   const selectedRows = useMemo(() => rows.filter((r) => r.selected), [rows]);
@@ -238,7 +239,9 @@ export default function SyncPage() {
     if (targets.length === 0) return;
     setRunning(true);
 
-    const notifyEnabled = await ensureNotificationPermission();
+    const status = await ensureNotificationPermission();
+    setNotifyStatus(status);
+    const notifyEnabled = status === "granted";
     const total = targets.length;
     let completed = 0;
     let okCount = 0;
@@ -427,10 +430,35 @@ export default function SyncPage() {
             {running ? "Đang đồng bộ..." : `Bắt đầu đồng bộ (${selectedRows.length} file)`}
           </button>
 
-          {!running && selectedRows.length > 0 && finishedCount === 0 && (
+          {!running && selectedRows.length > 0 && finishedCount === 0 && notifyStatus === null && (
             <p className="field-hint">
-              Trình duyệt sẽ hỏi quyền gửi thông báo — cho phép để theo dõi tiến trình từ
-              thanh thông báo, có thể thoát ra dùng app khác trong lúc chờ.
+              Trình duyệt sẽ hỏi quyền gửi thông báo khi bạn bấm bắt đầu — cho phép để xem
+              tiến trình từ thanh thông báo khi thoát ra dùng app khác.
+            </p>
+          )}
+
+          {notifyStatus === "granted" && (
+            <p className="field-hint" style={{ color: "var(--teal-bright)" }}>
+              ✓ Đã bật thông báo — kéo thanh thông báo xuống để xem tiến trình bất cứ lúc nào.
+            </p>
+          )}
+          {notifyStatus === "denied" && (
+            <p className="field-hint" style={{ color: "#e18b78" }}>
+              ✕ Thông báo đang bị chặn (bạn đã từ chối trước đó) — vào Cài đặt trình duyệt →
+              quyền của trang này → bật lại Thông báo nếu muốn xem tiến trình khi thoát app.
+              Việc đồng bộ vẫn diễn ra bình thường, chỉ là không có thông báo nhắc.
+            </p>
+          )}
+          {notifyStatus === "default" && (
+            <p className="field-hint">
+              Bạn chưa chọn cho phép hay từ chối thông báo — bấm "Bắt đầu đồng bộ" lần nữa để
+              trình duyệt hỏi lại.
+            </p>
+          )}
+          {notifyStatus === "unsupported" && (
+            <p className="field-hint">
+              Trình duyệt hoặc app đang mở trang này không hỗ trợ thông báo hệ thống. Việc
+              đồng bộ vẫn diễn ra bình thường, chỉ là không có thông báo nhắc tiến trình.
             </p>
           )}
 
