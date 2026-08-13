@@ -90,22 +90,41 @@ export async function POST(request) {
       const candidates = filesByEmail[richest.email].filter((f) => !movedIds.has(f.id));
       if (candidates.length === 0) break; // nothing left to move out of the richest account
 
-      // Prefer a file that closes the gap without overshooting past the
-      // poorest account; otherwise take the smallest available so progress
-      // is still made without a wild overcorrection.
-      const fitting = candidates.filter((f) => (f.size || 0) <= gap);
-      const file = fitting.length > 0 ? fitting[0] : candidates[candidates.length - 1];
-      const size = file.size || 0;
+      // Try every other account as a destination, poorest first, and for
+      // each one look for a file that actually fits its free space —
+      // instead of only ever trying the single poorest account and giving
+      // up the moment that one happens to be full.
+      const destinationsInOrder = bounded
+        .filter((a) => a.email !== richest.email)
+        .sort((a, b) => currentByEmail[a.email] - currentByEmail[b.email]);
 
-      if (freeByEmail[poorest.email] - size <= SAFETY_MARGIN_BYTES) break; // destination has no room
+      const sortedCandidates = [...candidates].sort((a, b) => (a.size || 0) - (b.size || 0));
 
-      moves.push({ id: file.id, name: file.name, size, fromEmail: richest.email, toEmail: poorest.email });
-      movedIds.add(file.id);
-      currentByEmail[richest.email] -= size;
-      currentByEmail[poorest.email] += size;
-      freeByEmail[richest.email] += size;
-      freeByEmail[poorest.email] -= size;
-      totalBytes += size;
+      let moved = false;
+      for (const dest of destinationsInOrder) {
+        // Prefer a file that closes the gap without wildly overshooting;
+        // fall back to the smallest one that still fits this destination.
+        const fitting = sortedCandidates.filter(
+          (f) => (f.size || 0) <= gap && freeByEmail[dest.email] - (f.size || 0) > SAFETY_MARGIN_BYTES
+        );
+        const file =
+          fitting[0] ||
+          sortedCandidates.find((f) => freeByEmail[dest.email] - (f.size || 0) > SAFETY_MARGIN_BYTES);
+        if (!file) continue; // this destination can't take anything right now, try the next one
+
+        const size = file.size || 0;
+        moves.push({ id: file.id, name: file.name, size, fromEmail: richest.email, toEmail: dest.email });
+        movedIds.add(file.id);
+        currentByEmail[richest.email] -= size;
+        currentByEmail[dest.email] += size;
+        freeByEmail[richest.email] += size;
+        freeByEmail[dest.email] -= size;
+        totalBytes += size;
+        moved = true;
+        break;
+      }
+
+      if (!moved) break; // no destination could take anything from the richest account right now
     }
   } else {
     const totalUsage = bounded.reduce((s, a) => s + a.quota.usage, 0);

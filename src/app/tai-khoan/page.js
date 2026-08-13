@@ -13,9 +13,11 @@ function bytes(n) {
 
 // Notifies with the browser/OS's normal notification sound (unlike the
 // silent progress notifications on the sync page) — this one marks the end
-// of a rebalance run, so a little "ding" is the point.
+// of a rebalance run, so a little "ding" is the point. Returns the resulting
+// permission status so the UI can explain exactly why the sound didn't play
+// if it didn't, instead of failing silently.
 async function notifyWithSound(title, body) {
-  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
   try {
     if (Notification.permission === "default") {
       await Notification.requestPermission();
@@ -23,9 +25,9 @@ async function notifyWithSound(title, body) {
     if (Notification.permission === "granted") {
       new Notification(title, { body, icon: "/icon-192.png" });
     }
+    return Notification.permission;
   } catch {
-    // No sound notification available here — the on-screen banner still
-    // reports the same result either way.
+    return "unsupported";
   }
 }
 
@@ -130,10 +132,12 @@ export default function HomePage() {
   const [executing, setExecuting] = useState(false);
   const [moveProgress, setMoveProgress] = useState({ done: 0, errors: 0 });
   const [balanceMode, setBalanceMode] = useState("percent"); // "percent" | "even"
+  const [lastResult, setLastResult] = useState(null); // { done, errors, notifyStatus }
 
   async function fetchPlan() {
     setPlanLoading(true);
     setPlan(null);
+    setLastResult(null);
     try {
       const res = await fetch("/api/accounts/rebalance/plan", {
         method: "POST",
@@ -169,10 +173,11 @@ export default function HomePage() {
     setExecuting(false);
     setPlan(null);
     setMoveProgress({ done: 0, errors: 0 });
-    notifyWithSound(
+    const notifyStatus = await notifyWithSound(
       "Cân bằng dung lượng hoàn tất",
       errors > 0 ? `Đã chuyển ${done - errors}/${done} file, ${errors} lỗi.` : `Đã chuyển xong ${done} file.`
     );
+    setLastResult({ done, errors, notifyStatus });
     load();
   }
 
@@ -350,6 +355,20 @@ export default function HomePage() {
                     />
                   </div>
                 </>
+              )}
+
+              {lastResult && !executing && (
+                <div className="banner banner-ok" style={{ margin: 0 }}>
+                  Đã chuyển {lastResult.done - lastResult.errors}/{lastResult.done} file
+                  {lastResult.errors > 0 ? `, ${lastResult.errors} lỗi` : ""}.
+                  {lastResult.notifyStatus === "granted" && " ✓ Đã gửi thông báo kèm âm thanh."}
+                  {lastResult.notifyStatus === "denied" &&
+                    " ✕ Không gửi được thông báo âm thanh vì quyền thông báo của trang này đang bị chặn — vào Cài đặt trình duyệt → quyền của trang này → bật lại Thông báo."}
+                  {lastResult.notifyStatus === "default" &&
+                    " Bạn chưa chọn cho phép thông báo — lần cân bằng sau trình duyệt sẽ hỏi lại."}
+                  {lastResult.notifyStatus === "unsupported" &&
+                    " Trình duyệt/app này không hỗ trợ thông báo hệ thống."}
+                </div>
               )}
             </div>
           </div>
