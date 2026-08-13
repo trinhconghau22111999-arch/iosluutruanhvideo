@@ -3,11 +3,13 @@ import { getLibraryEntry, updateLibraryEntry } from "@/lib/library";
 
 export const dynamic = "force-dynamic";
 
-// Drive's thumbnailLink defaults to a smallish size (e.g. "=s220"); a grid
-// tile only needs to be about this big on screen, so requesting a small
-// size keeps the payload tiny and the grid fast — this works for both
-// images and videos, since Drive generates a frame preview for videos too.
-function resizeThumbnailUrl(url, size = 100) {
+// Drive's thumbnailLink defaults to a smallish size (e.g. "=s220"); grid
+// tiles are at least 150 CSS px wide, and on high-density phone screens
+// (DPR 2-3x) that needs 300-450 real pixels to look sharp — so we request
+// 220px source images (up from 100px) as a middle ground between crisp
+// thumbnails and payload size. This works for both images and videos,
+// since Drive generates a frame preview for videos too.
+function resizeThumbnailUrl(url, size = 220) {
   return /=s\d+$/.test(url) ? url.replace(/=s\d+$/, `=s${size}`) : `${url}=s${size}`;
 }
 
@@ -48,7 +50,7 @@ export async function GET(request) {
   // loading at once.
   if (thumbnailLink) {
     try {
-      const res = await fetch(resizeThumbnailUrl(thumbnailLink, 100));
+      const res = await fetch(resizeThumbnailUrl(thumbnailLink, 220));
       if (res.ok && res.body) {
         return new Response(res.body, {
           headers: {

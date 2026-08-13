@@ -221,7 +221,7 @@ export default function HomePage() {
                       (acc.name || acc.email)[0]?.toUpperCase()
                     )}
                   </div>
-                  <div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 600 }}>{acc.name}</div>
                     <div className="meta">{acc.email}</div>
                     {acc.quota ? (
