@@ -411,6 +411,9 @@ export default function LibraryPage() {
 
 function Lightbox({ item, hasPrev, hasNext, busy, onClose, onPrev, onNext, onShare, onDelete }) {
   const touchStart = useRef(null);
+  // imageLoaded: ảnh gốc đã tải xong chưa — reset mỗi khi item thay đổi
+  const [imageLoaded, setImageLoaded] = useState(false);
+  useEffect(() => { setImageLoaded(false); }, [item.id]);
 
   function handleTouchStart(e) {
     e.stopPropagation();
@@ -431,13 +434,14 @@ function Lightbox({ item, hasPrev, hasNext, busy, onClose, onPrev, onNext, onSha
     touchStart.current = null;
 
     if (Math.abs(dx) < 40) return;
-    if (Math.abs(dx) < Math.abs(dy) * 1.3) return; // mostly vertical — ignore
+    if (Math.abs(dx) < Math.abs(dy) * 1.3) return;
 
-    // Không chặn swipe dựa vào trạng thái tải ảnh — cứ lướt là chuyển,
-    // kể cả khi ảnh hiện tại bị lỗi tải. Chỉ chặn nếu thật sự đã ở đầu/cuối.
     if (dx < 0 && hasNext) onNext();
     if (dx > 0 && hasPrev) onPrev();
   }
+
+  const isImage = item.mimeType?.startsWith("image/");
+  const thumbSrc = `/api/drive/thumbnail?id=${item.id}`;
 
   return (
     <div
@@ -454,13 +458,31 @@ function Lightbox({ item, hasPrev, hasNext, busy, onClose, onPrev, onNext, onSha
       </div>
 
       <div className="lightbox-stage">
-        {item.mimeType?.startsWith("image/") ? (
-          <img
-            className="lightbox-media"
-            src={`/api/drive/view?id=${item.id}`}
-            alt={item.name}
-            draggable={false}
-          />
+        {isImage ? (
+          <div className="lightbox-img-wrap">
+            {/* Thumbnail mờ hiện trong lúc ảnh gốc đang load */}
+            {!imageLoaded && (
+              <img
+                className="lightbox-media lightbox-thumb-blur"
+                src={thumbSrc}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+              />
+            )}
+            {/* Spinner ở giữa */}
+            {!imageLoaded && (
+              <span className="lightbox-spinner" aria-label="Đang tải ảnh" />
+            )}
+            {/* Ảnh gốc — ẩn cho đến khi tải xong, tránh flash trắng */}
+            <img
+              className={`lightbox-media${imageLoaded ? "" : " lightbox-media-hidden"}`}
+              src={`/api/drive/view?id=${item.id}`}
+              alt={item.name}
+              draggable={false}
+              onLoad={() => setImageLoaded(true)}
+            />
+          </div>
         ) : (
           <video
             className="lightbox-media"

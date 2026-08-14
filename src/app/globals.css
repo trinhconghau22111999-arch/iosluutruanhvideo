@@ -622,6 +622,47 @@ main {
   border-radius: 4px;
 }
 
+/* ── Lightbox image loading state ───────────────────────────── */
+.lightbox-img-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Ảnh gốc ẩn cho đến khi onLoad */
+.lightbox-media-hidden {
+  opacity: 0;
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Thumbnail mờ dùng làm nền trong lúc chờ ảnh gốc */
+.lightbox-thumb-blur {
+  filter: blur(8px);
+  transform: scale(1.05);
+  opacity: 0.6;
+}
+
+/* Spinner xoay tròn ở giữa */
+.lightbox-spinner {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .lightbox-bottom {
   display: flex;
   align-items: center;
