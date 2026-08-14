@@ -413,9 +413,6 @@ function Lightbox({ item, hasPrev, hasNext, busy, onClose, onPrev, onNext, onSha
   const touchStart = useRef(null);
 
   function handleTouchStart(e) {
-    // Stop this touch from also reaching the app-wide swipe-between-tabs
-    // handler in the layout — inside the viewer, a swipe should only ever
-    // move between photos, never switch pages.
     e.stopPropagation();
     const t = e.touches[0];
     touchStart.current = { x: t.clientX, y: t.clientY };
@@ -433,9 +430,11 @@ function Lightbox({ item, hasPrev, hasNext, busy, onClose, onPrev, onNext, onSha
     const dy = t.clientY - touchStart.current.y;
     touchStart.current = null;
 
-    if (Math.abs(dx) < 50) return;
+    if (Math.abs(dx) < 40) return;
     if (Math.abs(dx) < Math.abs(dy) * 1.3) return; // mostly vertical — ignore
 
+    // Không chặn swipe dựa vào trạng thái tải ảnh — cứ lướt là chuyển,
+    // kể cả khi ảnh hiện tại bị lỗi tải. Chỉ chặn nếu thật sự đã ở đầu/cuối.
     if (dx < 0 && hasNext) onNext();
     if (dx > 0 && hasPrev) onPrev();
   }
@@ -455,14 +454,13 @@ function Lightbox({ item, hasPrev, hasNext, busy, onClose, onPrev, onNext, onSha
       </div>
 
       <div className="lightbox-stage">
-        {hasPrev && (
-          <button className="lightbox-nav lightbox-nav-prev" onClick={onPrev} aria-label="Ảnh trước">
-            ‹
-          </button>
-        )}
-
         {item.mimeType?.startsWith("image/") ? (
-          <img className="lightbox-media" src={`/api/drive/view?id=${item.id}`} alt={item.name} />
+          <img
+            className="lightbox-media"
+            src={`/api/drive/view?id=${item.id}`}
+            alt={item.name}
+            draggable={false}
+          />
         ) : (
           <video
             className="lightbox-media"
@@ -473,12 +471,6 @@ function Lightbox({ item, hasPrev, hasNext, busy, onClose, onPrev, onNext, onSha
             preload="metadata"
             webkit-playsinline="true"
           />
-        )}
-
-        {hasNext && (
-          <button className="lightbox-nav lightbox-nav-next" onClick={onNext} aria-label="Ảnh sau">
-            ›
-          </button>
         )}
       </div>
 

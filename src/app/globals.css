@@ -622,37 +622,6 @@ main {
   border-radius: 4px;
 }
 
-.lightbox-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(20, 18, 13, 0.55);
-  border: 1px solid var(--ink-line);
-  color: var(--text-onink);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-}
-
-.lightbox-nav:hover {
-  background: rgba(20, 18, 13, 0.8);
-}
-
-.lightbox-nav-prev {
-  left: 8px;
-}
-
-.lightbox-nav-next {
-  right: 8px;
-}
-
 .lightbox-bottom {
   display: flex;
   align-items: center;
@@ -663,13 +632,6 @@ main {
   border-top: 1px solid var(--ink-line);
 }
 
-@media (min-width: 640px) {
-  .lightbox-nav {
-    width: 48px;
-    height: 48px;
-    font-size: 26px;
-  }
-}
 
 .tile-media img {
   width: 100%;
