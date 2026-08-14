@@ -48,6 +48,8 @@ export default function LibraryPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
+  const [downloading, setDownloading] = useState(false); // trạng thái tải về toàn bộ
+  const [downloadProgress, setDownloadProgress] = useState(null); // { done, total, failed }
   // Index into `items` of the photo/video currently open in the full-screen
   // viewer, or null when the viewer is closed. Because opening a file just
   // shows an overlay on top of this same page (instead of navigating to a
@@ -210,6 +212,38 @@ export default function LibraryPage() {
     }
   }
 
+  async function handleDownloadAll() {
+    if (items.length === 0) return;
+    if (!confirm(`Tải về toàn bộ ${items.length} file (${totals.image} ảnh + ${totals.video} video)?`))
+      return;
+
+    setDownloading(true);
+    setDownloadProgress({ done: 0, total: items.length, failed: 0 });
+
+    // Tải lần lượt từng file để tránh nghẽn băng thông
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx];
+      try {
+        const res = await fetch(`/api/drive/download?id=${item.id}`);
+        if (!res.ok) throw new Error("Tải thất bại");
+        const blob = await res.blob();
+        triggerDownload(blob, item.name);
+        setDownloadProgress((p) => p ? { ...p, done: p.done + 1 } : p);
+      } catch {
+        setDownloadProgress((p) => p ? { ...p, done: p.done + 1, failed: p.failed + 1 } : p);
+      }
+      // Nghỉ 300ms giữa các lần tải để trình duyệt không chặn download popup
+      if (idx < items.length - 1) await new Promise((r) => setTimeout(r, 300));
+    }
+
+    setDownloading(false);
+    const final = downloadProgress;
+    setDownloadProgress(null);
+    if (final && final.failed > 0) {
+      alert(`Đã tải ${final.total - final.failed}/${final.total} file. ${final.failed} file bị lỗi.`);
+    }
+  }
+
   const closeViewer = useCallback(() => setViewerIndex(null), []);
   const showPrev = useCallback(() => {
     setViewerIndex((i) => (i === null ? null : Math.max(0, i - 1)));
@@ -305,6 +339,30 @@ export default function LibraryPage() {
           </div>
         </div>
       ))}
+
+      {/* Nút tải về toàn bộ — chỉ hiện khi có ít nhất 1 file */}
+      {!loading && items.length > 0 && (
+        <div className="download-all-section">
+          {downloadProgress && (
+            <p className="field-hint" style={{ marginBottom: 12, textAlign: "center" }}>
+              Đang tải… {downloadProgress.done}/{downloadProgress.total} file
+              {downloadProgress.failed > 0 && ` (${downloadProgress.failed} lỗi)`}
+            </p>
+          )}
+          <button
+            className="btn btn-teal download-all-btn"
+            disabled={downloading}
+            onClick={handleDownloadAll}
+          >
+            {downloading
+              ? `Đang tải ${downloadProgress?.done ?? 0}/${downloadProgress?.total ?? items.length}…`
+              : `⬇ Tải về toàn bộ (${items.length} file)`}
+          </button>
+          <p className="field-hint" style={{ marginTop: 8, textAlign: "center" }}>
+            Tải lần lượt từng file về máy. Video lớn có thể mất vài giây mỗi file.
+          </p>
+        </div>
+      )}
 
       {viewerIndex !== null && items[viewerIndex] && (
         <Lightbox

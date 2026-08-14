@@ -858,3 +858,35 @@ input[type="radio"] {
   background: var(--paper-dim);
   border: 1px solid rgba(20, 18, 13, 0.25);
 }
+
+/* ── Tải về toàn bộ ─────────────────────────────────────────── */
+.btn-teal {
+  background: var(--teal);
+  color: #fff;
+  border-color: var(--teal);
+}
+
+.btn-teal:hover:not(:disabled) {
+  background: var(--teal-bright);
+  border-color: var(--teal-bright);
+}
+
+.download-all-section {
+  margin-top: 40px;
+  margin-bottom: 32px;
+  padding: 24px 20px;
+  border-top: 1px solid var(--ink-line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.download-all-btn {
+  width: 100%;
+  max-width: 360px;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
