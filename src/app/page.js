@@ -62,8 +62,16 @@ export default function LibraryPage() {
     setLoading(true);
     const res = await fetch("/api/library");
     const data = await res.json();
-    setItems(data.items || []);
+    const nextItems = data.items || [];
+    setItems(nextItems);
     setLoading(false);
+    // Tell the service worker the full set of still-valid ids so it can
+    // drop any cached thumbnails for files that were deleted elsewhere
+    // (a different tab, another session) since the cache was last synced.
+    navigator.serviceWorker?.controller?.postMessage({
+      type: "SYNC_IDS",
+      ids: nextItems.map((i) => i.id),
+    });
   }
 
   const totals = useMemo(() => {
@@ -90,6 +98,7 @@ export default function LibraryPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: item.id }),
     });
+    navigator.serviceWorker?.controller?.postMessage({ type: "DELETE_THUMB", id: item.id });
     setItems((prev) => {
       const next = prev.filter((i) => i.id !== item.id);
       // If the deleted file was open in the viewer, step to whatever is now
