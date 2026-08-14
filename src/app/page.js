@@ -386,9 +386,6 @@ export default function LibraryPage() {
               ? `Đang tải ${downloadProgress?.done ?? 0}/${downloadProgress?.total ?? items.length}…`
               : `⬇ Tải về toàn bộ (${items.length} file)`}
           </button>
-          <p className="field-hint" style={{ marginTop: 8, textAlign: "center" }}>
-            Tải lần lượt từng file về máy. Video lớn có thể mất vài giây mỗi file.
-          </p>
         </div>
       )}
 
