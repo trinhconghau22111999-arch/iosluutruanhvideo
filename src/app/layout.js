@@ -1,6 +1,7 @@
 import "./globals.css";
 import TopNav from "@/components/TopNav";
 import SwipeNav from "@/components/SwipeNav";
+import RegisterServiceWorker from "@/components/RegisterServiceWorker";
 
 export const metadata = {
   title: "Ký Sự — Đồng bộ ảnh & video lên nhiều Drive",
@@ -16,6 +17,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="vi">
       <body>
+        <RegisterServiceWorker />
         <div className="app-shell">
           <header className="topbar">
             <TopNav />
