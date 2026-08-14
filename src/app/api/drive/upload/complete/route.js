@@ -18,11 +18,23 @@ export async function POST(request) {
     driveFileId,
     driveLink,
     thumbnailLink,
+    clientThumbnail,
   } = await request.json();
 
   if (!dedupeKey || !driveFileId || !accountEmail) {
     return NextResponse.json({ error: "Thiếu thông tin để lưu" }, { status: 400 });
   }
+
+  // clientThumbnail is a small JPEG data URL the browser captured itself
+  // from the video's first frame at sync time (see sync/page.js) — used as
+  // a guaranteed fallback because Drive frequently never generates its own
+  // thumbnailLink for videos uploaded via the API, unlike images which
+  // almost always get one. Keep it capped defensively: Firestore documents
+  // have a 1MB limit and this field should only ever be a few tens of KB.
+  const safeClientThumbnail =
+    typeof clientThumbnail === "string" && clientThumbnail.length < 200_000
+      ? clientThumbnail
+      : null;
 
   await recordSyncedFile({
     dedupeKey,
@@ -34,6 +46,7 @@ export async function POST(request) {
     driveFileId,
     driveLink,
     thumbnailLink: thumbnailLink || null,
+    clientThumbnail: safeClientThumbnail,
   });
 
   return NextResponse.json({ ok: true });

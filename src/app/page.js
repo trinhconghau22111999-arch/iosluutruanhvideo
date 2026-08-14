@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EmptyGlyph from "@/components/EmptyGlyph";
+import { captureVideoFrame } from "@/lib/captureVideoFrame";
 
 function dayLabel(iso) {
   const d = new Date(iso);
@@ -54,6 +55,8 @@ export default function LibraryPage() {
   // the viewer lands you exactly back where you were.
   const [viewerIndex, setViewerIndex] = useState(null);
 
+  const backfillingRef = useRef(false);
+
   useEffect(() => {
     load();
   }, []);
@@ -72,12 +75,63 @@ export default function LibraryPage() {
       type: "SYNC_IDS",
       ids: nextItems.map((i) => i.id),
     });
+
+    // Videos synced before the client-side frame capture existed (or ones
+    // Drive itself never generated a thumbnailLink for) still show just
+    // the plain play glyph — quietly backfill those in the background,
+    // no action needed from the person.
+    const missing = nextItems.filter(
+      (i) => !i.mimeType?.startsWith("image/") && !i.thumbnailLink && !i.clientThumbnail
+    );
+    if (missing.length > 0 && !backfillingRef.current) backfillThumbnails(missing);
   }
 
   const totals = useMemo(() => {
     const videoCount = items.filter((i) => !i.mimeType?.startsWith("image/")).length;
     return { all: items.length, image: items.length - videoCount, video: videoCount };
   }, [items]);
+
+  const [backfillProgress, setBackfillProgress] = useState(null); // { done, total } | null
+
+  async function backfillThumbnails(targets) {
+    backfillingRef.current = true;
+    setBackfillProgress({ done: 0, total: targets.length });
+
+    const queue = [...targets];
+    const CONCURRENCY = 2; // a couple in parallel, but full videos are heavy — don't overdo it
+
+    async function worker() {
+      while (queue.length > 0) {
+        const item = queue.shift();
+        if (!item) return;
+        try {
+          const res = await fetch(`/api/drive/download?id=${item.id}`);
+          if (!res.ok) throw new Error("download failed");
+          const blob = await res.blob();
+          const clientThumbnail = await captureVideoFrame(blob);
+          if (!clientThumbnail) throw new Error("capture failed");
+
+          const saveRes = await fetch("/api/drive/thumbnail/backfill", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: item.id, clientThumbnail }),
+          });
+          if (!saveRes.ok) throw new Error("save failed");
+
+          setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, clientThumbnail } : i)));
+        } catch {
+          // This one file couldn't be backfilled (bad codec, network blip,
+          // etc.) — just move on, it'll show the play glyph as before and
+          // get tried again next time the library loads.
+        }
+        setBackfillProgress((p) => (p ? { done: p.done + 1, total: p.total } : p));
+      }
+    }
+
+    await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+    backfillingRef.current = false;
+    setBackfillProgress(null);
+  }
 
   const groups = useMemo(() => {
     const map = new Map();
@@ -193,6 +247,13 @@ export default function LibraryPage() {
           </p>
         )}
       </div>
+
+      {backfillProgress && (
+        <p className="field-hint" style={{ marginBottom: 16 }}>
+          Đang âm thầm tạo ảnh xem trước cho video cũ: {backfillProgress.done}/
+          {backfillProgress.total}...
+        </p>
+      )}
 
       {loading && <p className="field-hint">Đang tải...</p>}
       {!loading && items.length === 0 && (

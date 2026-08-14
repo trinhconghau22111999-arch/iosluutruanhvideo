@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { captureVideoFrame } from "@/lib/captureVideoFrame";
 
 function dedupeKeyOf(file) {
   return `${file.name}__${file.size}__${file.lastModified}`;
@@ -96,6 +97,11 @@ async function putInChunks(sessionUrl, file) {
 // bytes in small chunks (see putInChunks above), then tell our server the
 // small resulting metadata so it can be recorded.
 async function syncOneFile(file) {
+  const isVideo = file.type.startsWith("video/");
+  // Kick this off in parallel with the init round-trip below — no reason
+  // to wait on the server before starting the frame capture.
+  const clientThumbnailPromise = isVideo ? captureVideoFrame(file) : Promise.resolve(null);
+
   const initRes = await fetch("/api/drive/upload/init", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -111,6 +117,7 @@ async function syncOneFile(file) {
   if (initData.skipped) return initData;
 
   const driveFile = await putInChunks(initData.sessionUrl, file);
+  const clientThumbnail = await clientThumbnailPromise;
 
   const completeRes = await fetch("/api/drive/upload/complete", {
     method: "POST",
@@ -125,6 +132,7 @@ async function syncOneFile(file) {
       driveFileId: driveFile.id,
       driveLink: driveFile.webViewLink,
       thumbnailLink: driveFile.thumbnailLink,
+      clientThumbnail,
     }),
   });
   if (!completeRes.ok) {

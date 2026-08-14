@@ -22,6 +22,23 @@ export async function GET(request) {
   const isImage = entry.mimeType?.startsWith("image/");
   let thumbnailLink = entry.thumbnailLink;
 
+  // Fastest path: a frame the browser captured itself at sync time (see
+  // sync/page.js) — mainly relevant for video, since Drive very often
+  // never generates its own thumbnailLink for videos uploaded via the
+  // API. No network round-trip to Drive needed at all for this one.
+  if (entry.clientThumbnail) {
+    const match = /^data:([^;]+);base64,(.+)$/.exec(entry.clientThumbnail);
+    if (match) {
+      const [, contentType, base64] = match;
+      return new Response(Buffer.from(base64, "base64"), {
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": "private, max-age=86400",
+        },
+      });
+    }
+  }
+
   // Drive often hasn't finished generating a thumbnail yet at the moment a
   // file (especially a video) finishes uploading, so the value saved back
   // then can still be empty. Re-check live with Drive rather than being
