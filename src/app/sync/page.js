@@ -453,13 +453,7 @@ export default function SyncPage() {
               ✓ Đã bật thông báo — kéo thanh thông báo xuống để xem tiến trình bất cứ lúc nào.
             </p>
           )}
-          {notifyStatus === "denied" && (
-            <p className="field-hint" style={{ color: "#e18b78" }}>
-              ✕ Thông báo đang bị chặn (bạn đã từ chối trước đó) — vào Cài đặt trình duyệt →
-              quyền của trang này → bật lại Thông báo nếu muốn xem tiến trình khi thoát app.
-              Việc đồng bộ vẫn diễn ra bình thường, chỉ là không có thông báo nhắc.
-            </p>
-          )}
+
           {notifyStatus === "default" && (
             <p className="field-hint">
               Bạn chưa chọn cho phép hay từ chối thông báo — bấm "Bắt đầu đồng bộ" lần nữa để
