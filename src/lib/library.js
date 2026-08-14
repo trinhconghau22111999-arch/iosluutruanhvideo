@@ -2,11 +2,18 @@ import { db } from "./firebaseAdmin";
 
 const COLLECTION = "synced_files";
 
-// A dedupe key based on name+size+lastModified is a solid proxy for "same
-// photo/video" without needing to hash file bytes (which would be slow for
-// large videos on a phone connection).
-export function makeDedupeKey({ name, size, lastModified }) {
-  return `${name}__${size}__${lastModified}`;
+// Dedupe key dựa trên name + size — đủ để nhận dạng "cùng file" mà không
+// cần hash bytes (chậm với video lớn trên mạng di động).
+//
+// ⚠ Không dùng lastModified: trên iOS Safari và một số Android, trường này
+// trả về 0 hoặc Date.now() mỗi lần người dùng chọn file qua input[type=file]
+// — tức là cùng một file ảnh có thể cho lastModified khác nhau mỗi lần chọn,
+// khiến dedupeKey không khớp và file bị upload lại thành bản trùng.
+//
+// name + size là đủ chính xác: hai file ảnh/video khác nhau hiếm khi có
+// cùng tên lẫn cùng dung lượng byte.
+export function makeDedupeKey({ name, size }) {
+  return `${name}__${size}`;
 }
 
 export async function getExistingDedupeKeys(keys) {
@@ -23,6 +30,32 @@ export async function getExistingDedupeKeys(keys) {
     snap.forEach((doc) => found.add(doc.data().dedupeKey));
   }
   return found;
+}
+
+// Kiểm tra trùng lặp theo cả 2 cách:
+// 1. dedupeKey mới (name__size) — format hiện tại
+// 2. name + size khớp với bản ghi cũ (có thể có dedupeKey dạng name__size__lastModified)
+//
+// Dùng hàm này thay cho getExistingDedupeKeys ở bước init upload để tránh
+// upload lại những file đã đồng bộ trước khi migration format key.
+export async function checkAlreadySynced(name, size) {
+  // Kiểm tra key mới trước (nhanh, trường hợp phổ biến)
+  const newKey = makeDedupeKey({ name, size });
+  const byNewKey = await db
+    .collection(COLLECTION)
+    .where("dedupeKey", "==", newKey)
+    .limit(1)
+    .get();
+  if (!byNewKey.empty) return true;
+
+  // Fallback: tìm theo name + size (bắt bản ghi cũ có lastModified trong key)
+  const byNameSize = await db
+    .collection(COLLECTION)
+    .where("name", "==", name)
+    .where("size", "==", size)
+    .limit(1)
+    .get();
+  return !byNameSize.empty;
 }
 
 export async function recordSyncedFile(entry) {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getStorageQuota, initResumableUpload } from "@/lib/google";
-import { listAccounts, getExistingDedupeKeys, makeDedupeKey } from "@/lib/library";
+import { listAccounts, checkAlreadySynced, makeDedupeKey } from "@/lib/library";
 
 export const dynamic = "force-dynamic";
 
@@ -16,9 +16,9 @@ export async function POST(request) {
     return NextResponse.json({ error: "Thiếu thông tin file" }, { status: 400 });
   }
 
-  const dedupeKey = makeDedupeKey({ name, size, lastModified });
-  const already = await getExistingDedupeKeys([dedupeKey]);
-  if (already.has(dedupeKey)) {
+  const dedupeKey = makeDedupeKey({ name, size });
+  const already = await checkAlreadySynced(name, size);
+  if (already) {
     return NextResponse.json({ skipped: true, reason: "Đã đồng bộ trước đó", dedupeKey });
   }
 

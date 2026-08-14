@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { captureVideoFrame } from "@/lib/captureVideoFrame";
 
+// Phải khớp chính xác với makeDedupeKey() trong src/lib/library.js.
+// Không dùng lastModified vì iOS Safari và một số Android trả về giá trị
+// khác nhau mỗi lần chọn file — xem ghi chú trong library.js.
 function dedupeKeyOf(file) {
-  return `${file.name}__${file.size}__${file.lastModified}`;
+  return `${file.name}__${file.size}`;
 }
 
 // Shows (or updates, thanks to the fixed `tag`) a real OS-level
