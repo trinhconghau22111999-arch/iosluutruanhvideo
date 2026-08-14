@@ -55,6 +55,9 @@ export default function LibraryPage() {
   // new tab/route), the grid's scroll position is never disturbed — closing
   // the viewer lands you exactly back where you were.
   const [viewerIndex, setViewerIndex] = useState(null);
+  const [selectMode, setSelectMode] = useState(false);   // đang ở chế độ chọn để xóa
+  const [selectedIds, setSelectedIds] = useState(new Set()); // ids đang được chọn
+  const [deletingMulti, setDeletingMulti] = useState(false); // đang xóa hàng loạt
 
   useEffect(() => {
     load();
@@ -87,6 +90,56 @@ export default function LibraryPage() {
     }
     return Array.from(map.entries()); // items already sorted desc by syncedAt from API
   }, [items]);
+
+  function toggleSelectMode() {
+    if (selectMode) {
+      // Đang ở chế độ chọn → bấm lại = xóa những ảnh đã chọn
+      handleDeleteSelected();
+    } else {
+      setSelectMode(true);
+      setSelectedIds(new Set());
+    }
+  }
+
+  function cancelSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
+  function toggleSelectItem(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function handleDeleteSelected() {
+    if (selectedIds.size === 0) {
+      cancelSelectMode();
+      return;
+    }
+    if (!confirm(`Xoá ${selectedIds.size} file đã chọn khỏi Google Drive và thư viện?`)) return;
+
+    setDeletingMulti(true);
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      try {
+        await fetch("/api/drive/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+        navigator.serviceWorker?.controller?.postMessage({ type: "DELETE_THUMB", id });
+        setItems((prev) => prev.filter((i) => i.id !== id));
+      } catch {
+        // file lỗi thì bỏ qua, tiếp tục xóa file kế tiếp
+      }
+    }
+    setDeletingMulti(false);
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
 
   async function handleDelete(item) {
     if (!confirm(`Xoá "${item.name}" khỏi Google Drive (${item.accountEmail}) và khỏi thư viện?`))
@@ -243,15 +296,24 @@ export default function LibraryPage() {
           <div className="grid">
             {dayItems.map((item) => {
               const flatIndex = items.findIndex((i) => i.id === item.id);
+              const isSelected = selectedIds.has(item.id);
               return (
-                <div className="tile" key={item.id}>
+                <div
+                  className={`tile${isSelected ? " tile-selected" : ""}`}
+                  key={item.id}
+                >
                   <button
                     type="button"
                     className="tile-media"
-                    onClick={() => setViewerIndex(flatIndex)}
-                    aria-label={`Xem ${item.name}`}
+                    onClick={() => selectMode ? toggleSelectItem(item.id) : setViewerIndex(flatIndex)}
+                    aria-label={selectMode ? `${isSelected ? "Bỏ chọn" : "Chọn"} ${item.name}` : `Xem ${item.name}`}
                   >
                     <TileThumb item={item} />
+                    {selectMode && (
+                      <span className={`tile-checkbox${isSelected ? " tile-checkbox-checked" : ""}`}>
+                        {isSelected ? "✓" : ""}
+                      </span>
+                    )}
                   </button>
                   <div className="tile-body">
                     <div className="tile-name" title={item.name}>
@@ -260,14 +322,16 @@ export default function LibraryPage() {
                     <div className="meta" style={{ color: "var(--text-muted)" }}>
                       {item.accountEmail}
                     </div>
-                    <div className="tile-actions">
-                      <button disabled={busyId === item.id} onClick={() => handleShare(item)}>
-                        {busyId === item.id ? "Đang tải..." : "Chia sẻ"}
-                      </button>
-                      <button disabled={busyId === item.id} onClick={() => handleDelete(item)}>
-                        Xoá
-                      </button>
-                    </div>
+                    {!selectMode && (
+                      <div className="tile-actions">
+                        <button disabled={busyId === item.id} onClick={() => handleShare(item)}>
+                          {busyId === item.id ? "Đang tải..." : "Chia sẻ"}
+                        </button>
+                        <button disabled={busyId === item.id} onClick={() => handleDelete(item)}>
+                          Xoá
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -276,9 +340,37 @@ export default function LibraryPage() {
         </div>
       ))}
 
-      {/* Nút tải về toàn bộ — chỉ hiện khi có ít nhất 1 file */}
+      {/* Nút chọn nhiều để xóa + nút tải về toàn bộ */}
       {!loading && items.length > 0 && (
         <div className="download-all-section">
+
+          {/* Nút chọn xóa nhiều */}
+          <div className="multi-delete-row">
+            {selectMode && (
+              <button
+                className="btn btn-ghost btn-small"
+                onClick={cancelSelectMode}
+                disabled={deletingMulti}
+              >
+                Huỷ
+              </button>
+            )}
+            <button
+              className={`btn ${selectMode && selectedIds.size > 0 ? "btn-danger" : "btn-ghost"} multi-delete-btn`}
+              onClick={toggleSelectMode}
+              disabled={deletingMulti}
+            >
+              {deletingMulti
+                ? `Đang xoá…`
+                : selectMode
+                ? selectedIds.size > 0
+                  ? `🗑 Xoá ${selectedIds.size} file đã chọn`
+                  : `Chọn ảnh/video để xoá…`
+                : `☑ Chọn để xoá nhiều`}
+            </button>
+          </div>
+
+          {/* Nút tải về toàn bộ */}
           {downloadProgress && (
             <p className="field-hint" style={{ marginBottom: 12, textAlign: "center" }}>
               Đang tải… {downloadProgress.done}/{downloadProgress.total} file
@@ -287,7 +379,7 @@ export default function LibraryPage() {
           )}
           <button
             className="btn btn-teal download-all-btn"
-            disabled={downloading}
+            disabled={downloading || selectMode}
             onClick={handleDownloadAll}
           >
             {downloading
