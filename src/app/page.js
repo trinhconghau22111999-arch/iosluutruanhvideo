@@ -442,6 +442,8 @@ function Lightbox({ item, hasPrev, hasNext, busy, onClose, onPrev, onNext, onSha
             controls
             autoPlay
             playsInline
+            preload="metadata"
+            webkit-playsinline="true"
           />
         )}
 
